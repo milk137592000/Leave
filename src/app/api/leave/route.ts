@@ -4,6 +4,10 @@ import { LeaveRecord as LeaveRecordModel } from '@/models/LeaveRecord';
 import { LeaveRecord as ILeaveRecord, FullDayOvertime, CustomOvertime, OvertimeMember, Overtime } from '@/types/LeaveRecord';
 import mongoose, { Document } from 'mongoose';
 import type { ShiftType } from '@/types/schedule';
+import UserProfile from '@/models/UserProfile';
+import { sendOvertimeNotificationToMultiple, OvertimeNotification } from '@/services/lineBot';
+import { getTeamsForDate } from '@/data/teams';
+import { getShiftForDate } from '@/utils/schedule';
 
 // 8天循環的班別順序
 const SHIFT_CYCLE: ShiftType[] = [
@@ -255,6 +259,9 @@ export async function POST(request: Request) {
         // 保存請假記錄
         const leaveRecord = new LeaveRecordModel(leaveRecordData);
         await leaveRecord.save();
+
+        // 發送 LINE 加班通知
+        await sendOvertimeNotifications(leaveRecord);
 
         return NextResponse.json(leaveRecord);
     } catch (error) {
@@ -602,4 +609,140 @@ async function checkIfSmallRestTeam(team: string, date: string): Promise<boolean
     });
 
     return shift === '小休';
-} 
+}
+
+// 發送加班通知的函數
+async function sendOvertimeNotifications(leaveRecord: any) {
+    try {
+        // 只有在 LINE Bot 配置正確時才發送通知
+        if (!process.env.LINE_CHANNEL_ACCESS_TOKEN || !process.env.LINE_CHANNEL_SECRET) {
+            console.log('LINE Bot 未配置，跳過通知發送');
+            return;
+        }
+
+        const { date, name, team, period } = leaveRecord;
+
+        // 計算加班建議
+        const suggestions = calculateOvertimeSuggestions(leaveRecord);
+
+        if (!suggestions || suggestions.length === 0) {
+            console.log('沒有加班建議，跳過通知發送');
+            return;
+        }
+
+        // 為每個建議的班級發送通知
+        for (const suggestion of suggestions) {
+            const { suggestedTeam, reason, periodDescription } = suggestion;
+
+            // 查找該班級的用戶
+            const targetUsers = await UserProfile.find({
+                team: suggestedTeam,
+                notificationEnabled: true
+            });
+
+            if (targetUsers.length === 0) {
+                console.log(`${suggestedTeam}班沒有已註冊的用戶，跳過通知`);
+                continue;
+            }
+
+            // 準備通知內容
+            const notification: OvertimeNotification = {
+                requesterName: name,
+                requesterTeam: team || '未知',
+                date,
+                period: periodDescription,
+                suggestedTeam,
+                reason
+            };
+
+            // 發送通知
+            const lineUserIds = targetUsers.map(user => user.lineUserId);
+            const results = await sendOvertimeNotificationToMultiple(lineUserIds, notification);
+
+            console.log(`加班通知發送結果 - ${suggestedTeam}班:`, {
+                成功: results.success.length,
+                失敗: results.failed.length
+            });
+        }
+    } catch (error) {
+        console.error('發送加班通知時發生錯誤:', error);
+        // 不拋出錯誤，避免影響請假記錄的創建
+    }
+}
+
+// 計算加班建議的函數
+function calculateOvertimeSuggestions(leaveRecord: any) {
+    const { date, team, period } = leaveRecord;
+    const suggestions = [];
+
+    try {
+        // 檢查當天是否有大休的班級
+        let bigRestTeam = null;
+        const teams = getTeamsForDate(date);
+        for (const [teamKey] of Object.entries(teams)) {
+            const teamShift = getShiftForDate(new Date(date), teamKey);
+            if (teamShift === '大休') {
+                bigRestTeam = teamKey;
+                break;
+            }
+        }
+
+        if (bigRestTeam) {
+            // 如果有大休班級，優先建議大休班級
+            suggestions.push({
+                suggestedTeam: bigRestTeam,
+                reason: `${bigRestTeam}班當天大休，可協助加班`,
+                periodDescription: formatPeriodForNotification(period)
+            });
+        } else {
+            // 如果沒有大休班級，根據現有邏輯計算建議
+            const shift = getShiftForDate(new Date(date), team);
+            if (shift && shift !== '大休' && shift !== '小休') {
+                // 找到下一班的班級作為建議
+                const nextShiftTeam = findNextShiftTeam(shift, date);
+                if (nextShiftTeam && nextShiftTeam !== team) {
+                    suggestions.push({
+                        suggestedTeam: nextShiftTeam,
+                        reason: `${nextShiftTeam}班接續${shift}，適合協助加班`,
+                        periodDescription: formatPeriodForNotification(period)
+                    });
+                }
+            }
+        }
+    } catch (error) {
+        console.error('計算加班建議時發生錯誤:', error);
+    }
+
+    return suggestions;
+}
+
+// 格式化時段描述
+function formatPeriodForNotification(period: any): string {
+    if (period === 'fullDay') {
+        return '全天';
+    } else if (period && period.type === 'custom') {
+        return `${period.startTime}-${period.endTime}`;
+    }
+    return '未知時段';
+}
+
+// 找到下一班的班級
+function findNextShiftTeam(currentShift: string, date: string): string | null {
+    const teams = getTeamsForDate(date);
+    const shiftOrder = ['早班', '中班', '夜班'];
+    const currentIndex = shiftOrder.indexOf(currentShift);
+
+    if (currentIndex === -1) return null;
+
+    const nextShift = shiftOrder[(currentIndex + 1) % shiftOrder.length];
+
+    // 找到執行下一班的班級
+    for (const [teamKey] of Object.entries(teams)) {
+        const teamShift = getShiftForDate(new Date(date), teamKey);
+        if (teamShift === nextShift) {
+            return teamKey;
+        }
+    }
+
+    return null;
+}

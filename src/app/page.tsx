@@ -146,6 +146,26 @@ export default function Home() {
                             ))}
                         </select>
                     </div>
+
+                    {/* LINE 連動功能按鈕 */}
+                    <div className="flex space-x-2">
+                        <button
+                            onClick={() => router.push('/line-admin')}
+                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
+                        >
+                            LINE 管理
+                        </button>
+                        <button
+                            onClick={() => {
+                                const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID || 'YOUR_LIFF_ID'}`;
+                                navigator.clipboard.writeText(liffUrl);
+                                alert('LIFF 連結已複製到剪貼簿，請分享給員工進行身份設定');
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                        >
+                            複製設定連結
+                        </button>
+                    </div>
                 </div>
                 <Calendar
                     schedules={schedules}

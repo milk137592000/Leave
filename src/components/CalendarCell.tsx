@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { format, isSameDay, parse } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { TEAMS } from '@/data/teams';
 import { getShiftForDate, calculateTeamDeficit, getMemberRole, getMemberTeam, TEAM_START_POSITIONS } from '@/utils/schedule';
@@ -104,16 +104,7 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
         return getShiftForDate(new Date(currentDate), team);
     };
 
-    // 根據日期和班別類型找到對應的班級
-    const findTeamByShiftTypeOnDate = (date: Date, shiftType: string): string | null => {
-        for (const [teamKey] of Object.entries(TEAMS)) {
-            const teamShift = getShiftForDate(date, teamKey);
-            if (teamShift === shiftType) {
-                return teamKey;
-            }
-        }
-        return null;
-    };
+
 
     // 獲取半天加班建議（與請假頁面邏輯一致）
     const getHalfDayOvertimeSuggestions = (team: string | undefined, date: string): { firstHalf: string; secondHalf: string } => {
@@ -162,12 +153,12 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
             return null;
         };
 
-        const todayZhong = getCurrentTeam('中班');
-        const todayYe = getCurrentTeam('夜班');
-        const todayZao = getCurrentTeam('早班');
-        const todayXiaoXiu = getRestTeam('小休');
-        const prevZao = getPreviousTeam('早班');
-        const prevZhong = getPreviousTeam('中班');
+        const todayZhong = getCurrentTeam('中班') || '';
+        const todayYe = getCurrentTeam('夜班') || '';
+        const todayZao = getCurrentTeam('早班') || '';
+        const todayXiaoXiu = getRestTeam('小休') || '';
+        const prevZao = getPreviousTeam('早班') || '';
+        const prevZhong = getPreviousTeam('中班') || '';
 
         let firstHalfSuggestion = '';
         let secondHalfSuggestion = '';
@@ -287,7 +278,7 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
             console.log(`[getSuggestedOvertimeTeams DETAILED TRACE] Record: ${record.name} (Leaver Original Team: ${leaverOriginalTeam || 'N/A'}), Date: ${record.date}, Leaver Original Shift (on this date): ${memberOriginalShift || 'N/A'}`);
         }
 
-        const addSuggestion = (suggestedTeam: string | null | undefined, half: 'FH' | 'SH' | 'FullDay' | 'Custom') => {
+        const addSuggestion = (suggestedTeam: string | null | undefined, half: 'FH' | 'SH' | 'FullDay' | 'Custom' | 'BigRest') => {
             if (detailedLog) {
                 console.log(`  [${half}] Attempting to suggest: '${suggestedTeam}'. Leaver's team: '${leaverOriginalTeam}'. Rule: suggestedTeam && suggestedTeam !== leaverOriginalTeam.`);
             }
@@ -417,7 +408,7 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                 }
 
                 // 同時計算拆班加班建議（與大休建議並存）
-                const halfDaySuggestions = getHalfDayOvertimeSuggestions(leaverOriginalTeam, record.date);
+                const halfDaySuggestions = getHalfDayOvertimeSuggestions(leaverOriginalTeam || undefined, record.date);
                 if (halfDaySuggestions.firstHalf && halfDaySuggestions.firstHalf !== '無建議') {
                     const firstTeam = halfDaySuggestions.firstHalf.replace('班', '');
                     addSuggestion(firstTeam, 'FH');
@@ -601,81 +592,7 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
         return false;
     };
 
-    // 判斷是否為建議加班班級
-    const isSuggestedOvertime = (record: LeaveRecord) => {
-        if (!selectedTeam) return false;
 
-        // 檢查特定日期 - 如果是 2025-05-08
-        const isTargetDate = formattedDate === '2025-05-08';
-
-        // 如果是目標日期，且是 A 班或 D 班
-        if (isTargetDate && selectedTeam) {
-            console.log(`特殊日期加班標籤檢查: ${formattedDate}, 班級: ${selectedTeam}, 請假人: ${record.name}`);
-
-            // A 班特殊處理：在 05/08 這天應該始終顯示「可加班」標籤
-            if (selectedTeam === 'A') {
-                // 檢查是否已完成後半班加班
-                const isSecondHalfComplete =
-                    record.fullDayOvertime?.type === '加一半' &&
-                    record.fullDayOvertime.secondHalfMember?.confirmed;
-
-                // 如果後半班加班尚未完成，則在 A 班日曆上顯示「可加班」標籤
-                if (!isSecondHalfComplete) {
-                    console.log(`在日期 ${formattedDate} A班日曆顯示請假記錄 ${record.name} 的「可加班」標籤`);
-                    return true;
-                }
-            }
-
-            // D 班特殊處理
-            if (selectedTeam === 'D') {
-                // 檢查是否已完成前半班加班
-                const isFirstHalfComplete =
-                    record.fullDayOvertime?.type === '加一半' &&
-                    record.fullDayOvertime.firstHalfMember?.confirmed;
-
-                // 如果前半班加班尚未完成，則在 D 班日曆上顯示「可加班」標籤
-                if (!isFirstHalfComplete) {
-                    console.log(`在日期 ${formattedDate} D班日曆顯示請假記錄 ${record.name} 的「可加班」標籤`);
-                    return true;
-                }
-            }
-        }
-
-        // 檢查是否已完成加班
-        const isFirstHalfComplete = record.fullDayOvertime?.firstHalfMember?.confirmed || false;
-        const isSecondHalfComplete = record.fullDayOvertime?.secondHalfMember?.confirmed || false;
-        const isFullDayComplete = record.fullDayOvertime?.type === '加整班' && record.fullDayOvertime.fullDayMember?.confirmed;
-        const isCustomOvertimeComplete = record.customOvertime?.confirmed || false;
-
-        // 如果全部加班已完成，不顯示標註
-        if ((record.fullDayOvertime?.type === '加整班' && isFullDayComplete) ||
-            (record.fullDayOvertime?.type === '加一半' && isFirstHalfComplete && isSecondHalfComplete) ||
-            isCustomOvertimeComplete) {
-            return false;
-        }
-
-        // 特定班級邏輯：如果前半班或後半班已指定特定班級且該班級與當前選中班級匹配
-        if (record.fullDayOvertime?.type === '加一半') {
-            // 檢查前半班
-            if (!isFirstHalfComplete && record.fullDayOvertime.firstHalfMember?.team === selectedTeam) {
-                console.log(`前半班加班標籤匹配: ${selectedTeam}`);
-                return true;
-            }
-            // 檢查後半班
-            if (!isSecondHalfComplete && record.fullDayOvertime.secondHalfMember?.team === selectedTeam) {
-                console.log(`後半班加班標籤匹配: ${selectedTeam}`);
-                return true;
-            }
-        }
-        // 檢查自定義時段加班單
-        else if (record.customOvertime && !isCustomOvertimeComplete && record.customOvertime.team === selectedTeam) {
-            console.log(`自定義加班標籤匹配: ${selectedTeam}`);
-            return true;
-        }
-
-        // 獲取建議加班班級並檢查當前班級是否包含在內
-        return getSuggestedOvertimeTeams(record).includes(selectedTeam);
-    };
 
     return (
         <div

@@ -83,9 +83,10 @@ export const isTeamBigRestOnTuesday = (team: string, date: string): boolean => {
 // 尋找大休的班級成員
 export const findBigRestMembers = (team: string, role: string, date: string): string[] => {
     const bigRestMembers: string[] = [];
+    const teams = getTeamsForDate(date);
 
     // 遍歷所有班級
-    for (const [teamKey, teamData] of Object.entries(TEAMS)) {
+    for (const [teamKey, teamData] of Object.entries(teams)) {
         // 跳過請假人員所屬的班級
         if (teamKey === team) continue;
 
@@ -106,9 +107,10 @@ export const findBigRestMembers = (team: string, role: string, date: string): st
 // 尋找一般班級成員
 export const findRegularMembers = (team: string, role: string, date: string): string[] => {
     const regularMembers: string[] = [];
+    const teams = getTeamsForDate(date);
 
     // 遍歷所有班級
-    for (const [teamKey, teamData] of Object.entries(TEAMS)) {
+    for (const [teamKey, teamData] of Object.entries(teams)) {
         // 跳過請假人員所屬的班級
         if (teamKey === team) continue;
 
