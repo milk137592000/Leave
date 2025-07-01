@@ -1608,12 +1608,12 @@ const LeaveDatePage: React.FC = () => {
         // 確保時間格式一致 (把 "08:15" 轉換為 "0815")
         const formattedStartTime = startTime.replace(':', '');
         const formattedEndTime = endTime.replace(':', '');
-        
+
         const startTimeInt = parseInt(formattedStartTime);
         const endTimeInt = parseInt(formattedEndTime);
 
         // 獲取上一班和下一班的班級
-        const previousShiftTeam = getTeamByShift(getPreviousShift(shift), true, date);
+        const previousShiftTeam = getTeamByShift(getPreviousShift(shift), false, date);
         const nextShiftTeam = getTeamByShift(getNextShift(shift), false, date);
 
         // 檢查是否與上一班結束時間重疊
@@ -1621,7 +1621,7 @@ const LeaveDatePage: React.FC = () => {
         if (startTimeInt === previousShiftEndTime) {
             return {
                 suggestion: previousShiftTeam,
-                reason: `因請假起始時間(${formatTimeDisplay(formattedStartTime)})與上一班結束時間相同，建議由前一天${previousShiftTeam}班加班`
+                reason: `因請假起始時間(${formatTimeDisplay(formattedStartTime)})與上一班結束時間相同，建議由當天${previousShiftTeam}班延長工作到${formatTimeDisplay(formattedEndTime)}`
             };
         }
 
@@ -1647,6 +1647,16 @@ const LeaveDatePage: React.FC = () => {
 
         const shift = getTeamShift(team, date);
         if (!shift || shift === '小休' || shift === '大休') return { firstHalf: '', secondHalf: '' };
+
+        // 檢查當天是否有大休的班級
+        let bigRestTeam = null;
+        for (const [teamKey] of Object.entries(TEAMS)) {
+            const teamShift = getShiftForDate(new Date(date), teamKey);
+            if (teamShift === '大休') {
+                bigRestTeam = teamKey;
+                break;
+            }
+        }
 
         // 取得 cyclePosition
         const startDate = new Date('2025/04/01');
@@ -1702,9 +1712,14 @@ const LeaveDatePage: React.FC = () => {
                 break;
         }
 
+        // 如果有大休班級，將大休建議與拆班建議合併
+        let finalFirstHalf = firstHalfSuggestion ? `${firstHalfSuggestion}班` : '無建議';
+        let finalSecondHalf = secondHalfSuggestion ? `${secondHalfSuggestion}班` : '無建議';
+
+        // 注意：這裡保持原來的拆班邏輯，大休建議會在其他地方處理
         return {
-            firstHalf: firstHalfSuggestion ? `${firstHalfSuggestion}班` : '無建議',
-            secondHalf: secondHalfSuggestion ? `${secondHalfSuggestion}班` : '無建議'
+            firstHalf: finalFirstHalf,
+            secondHalf: finalSecondHalf
         };
     };
 
@@ -1907,28 +1922,47 @@ const LeaveDatePage: React.FC = () => {
                                                 <span>{overtimePeople || (
                                                     <>
                                                         {(() => {
-                                                            const suggestions = getHalfDayOvertimeSuggestions(team, date);
-                                                            let firstTeam = suggestions.firstHalf;
-                                                            let secondTeam = suggestions.secondHalf;
-                                                            
-                                                            if (firstTeam && !firstTeam.endsWith('班')) {
-                                                                firstTeam = firstTeam + '班';
-                                                            }
-                                                            if (secondTeam && !secondTeam.endsWith('班')) {
-                                                                secondTeam = secondTeam + '班';
-                                                            }
-                                                            
-                                                            return (
-                                                                <>
+                                                            // 區分全天請假和自定義時段請假
+                                                            if (record.period === 'fullDay') {
+                                                                // 全天請假：顯示前後半班建議
+                                                                const suggestions = getHalfDayOvertimeSuggestions(team, date);
+                                                                let firstTeam = suggestions.firstHalf;
+                                                                let secondTeam = suggestions.secondHalf;
+
+                                                                if (firstTeam && !firstTeam.endsWith('班')) {
+                                                                    firstTeam = firstTeam + '班';
+                                                                }
+                                                                if (secondTeam && !secondTeam.endsWith('班')) {
+                                                                    secondTeam = secondTeam + '班';
+                                                                }
+
+                                                                return (
+                                                                    <>
+                                                                        <span>
+                                                                            <span className="text-xs">前{firstTeam}</span> <span className="text-red-500">缺</span>
+                                                                        </span>
+                                                                        <span className="mx-2" />
+                                                                        <span>
+                                                                            <span className="text-xs">後{secondTeam}</span> <span className="text-red-500">缺</span>
+                                                                        </span>
+                                                                    </>
+                                                                );
+                                                            } else if (typeof record.period === 'object' && record.period.type === 'custom') {
+                                                                // 自定義時段請假：顯示單一建議班級
+                                                                const customSuggestion = getCustomOvertimeSuggestions(
+                                                                    record.period.startTime,
+                                                                    record.period.endTime,
+                                                                    team || ''
+                                                                );
+                                                                const suggestedTeam = customSuggestion.suggestion;
+
+                                                                return (
                                                                     <span>
-                                                                        <span className="text-xs">前{firstTeam}</span> <span className="text-red-500">缺</span>
+                                                                        <span className="text-xs">{suggestedTeam}班</span> <span className="text-red-500">缺</span>
                                                                     </span>
-                                                                    <span className="mx-2" />
-                                                                    <span>
-                                                                        <span className="text-xs">後{secondTeam}</span> <span className="text-red-500">缺</span>
-                                                                    </span>
-                                                                </>
-                                                            );
+                                                                );
+                                                            }
+                                                            return null;
                                                         })()}
                                                     </>
                                                   )}</span>

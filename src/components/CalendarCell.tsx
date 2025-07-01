@@ -4,7 +4,7 @@ import React from 'react';
 import { format, isSameDay, parse } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { TEAMS } from '@/data/teams';
-import { getShiftForDate, calculateTeamDeficit, getMemberRole, getMemberTeam } from '@/utils/schedule';
+import { getShiftForDate, calculateTeamDeficit, getMemberRole, getMemberTeam, TEAM_START_POSITIONS } from '@/utils/schedule';
 import type { LeaveRecord } from '@/types/LeaveRecord';
 import type { DaySchedule, ShiftType } from '@/types/schedule';
 
@@ -95,6 +95,183 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                 return team;
             }
         }
+        return null;
+    };
+
+    // 獲取班級當天班別
+    const getTeamShift = (team: string | undefined, currentDate: string): ShiftType | null => {
+        if (!team) return null;
+        return getShiftForDate(new Date(currentDate), team);
+    };
+
+    // 根據日期和班別類型找到對應的班級
+    const findTeamByShiftTypeOnDate = (date: Date, shiftType: string): string | null => {
+        for (const [teamKey] of Object.entries(TEAMS)) {
+            const teamShift = getShiftForDate(date, teamKey);
+            if (teamShift === shiftType) {
+                return teamKey;
+            }
+        }
+        return null;
+    };
+
+    // 獲取半天加班建議（與請假頁面邏輯一致）
+    const getHalfDayOvertimeSuggestions = (team: string | undefined, date: string): { firstHalf: string; secondHalf: string } => {
+        if (!team) return { firstHalf: '', secondHalf: '' };
+
+        const shift = getTeamShift(team, date);
+        if (!shift || shift === '小休' || shift === '大休') return { firstHalf: '', secondHalf: '' };
+
+        // 取得 cyclePosition
+        const startDate = new Date('2025/04/01');
+        const targetDate = new Date(date);
+        const daysDiff = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const startPos = TEAM_START_POSITIONS[team];
+        const cyclePosition = ((startPos + daysDiff) % 8 + 8) % 8;
+
+        // 使用與請假頁面相同的邏輯
+        const getCurrentTeam = (targetShift: ShiftType): string | null => {
+            for (const [teamKey] of Object.entries(TEAMS)) {
+                const teamShift = getShiftForDate(new Date(date), teamKey);
+                if (teamShift === targetShift) {
+                    return teamKey;
+                }
+            }
+            return null;
+        };
+
+        const getPreviousTeam = (targetShift: ShiftType): string | null => {
+            const prevDate = new Date(targetDate);
+            prevDate.setDate(prevDate.getDate() - 1);
+            for (const [teamKey] of Object.entries(TEAMS)) {
+                const teamShift = getShiftForDate(prevDate, teamKey);
+                if (teamShift === targetShift) {
+                    return teamKey;
+                }
+            }
+            return null;
+        };
+
+        const getRestTeam = (restType: '小休' | '大休'): string | null => {
+            for (const [teamKey] of Object.entries(TEAMS)) {
+                const teamShift = getShiftForDate(new Date(date), teamKey);
+                if (teamShift === restType) {
+                    return teamKey;
+                }
+            }
+            return null;
+        };
+
+        const todayZhong = getCurrentTeam('中班');
+        const todayYe = getCurrentTeam('夜班');
+        const todayZao = getCurrentTeam('早班');
+        const todayXiaoXiu = getRestTeam('小休');
+        const prevZao = getPreviousTeam('早班');
+        const prevZhong = getPreviousTeam('中班');
+
+        let firstHalfSuggestion = '';
+        let secondHalfSuggestion = '';
+
+        switch (shift) {
+            case '早班':
+                // 早班1: cyclePosition==1，早班2: cyclePosition==2
+                firstHalfSuggestion = todayZhong;
+                if (cyclePosition === 1) {
+                    secondHalfSuggestion = todayXiaoXiu;
+                } else {
+                    secondHalfSuggestion = todayYe;
+                }
+                break;
+            case '中班':
+                // 中班1: cyclePosition==3， 中班2: cyclePosition==4
+                firstHalfSuggestion = todayZao;
+                if (cyclePosition === 3) {
+                    secondHalfSuggestion = todayXiaoXiu;
+                } else {
+                    secondHalfSuggestion = todayYe;
+                }
+                break;
+            case '夜班':
+                // 夜班: cyclePosition==6 or 7
+                firstHalfSuggestion = prevZao;
+                secondHalfSuggestion = prevZhong;
+                break;
+        }
+
+        return {
+            firstHalf: firstHalfSuggestion ? `${firstHalfSuggestion}班` : '無建議',
+            secondHalf: secondHalfSuggestion ? `${secondHalfSuggestion}班` : '無建議'
+        };
+    };
+
+    // 獲取自定義時段的加班建議
+    const getCustomOvertimeSuggestion = (startTime: string, endTime: string, team: string | null, date: string): string | null => {
+        if (!team) return null;
+
+        const shift = getTeamShift(team, date);
+        if (!shift) return null;
+
+        // 確保時間格式一致 (把 "08:15" 轉換為 "0815")
+        const formattedStartTime = startTime.replace(':', '');
+        const formattedEndTime = endTime.replace(':', '');
+
+        const startTimeInt = parseInt(formattedStartTime);
+        const endTimeInt = parseInt(formattedEndTime);
+
+        // 獲取班次時間
+        const getShiftStartTime = (shift: ShiftType): number => {
+            switch (shift) {
+                case '早班': return 815;
+                case '中班': return 1615;
+                case '夜班': return 2315;
+                default: return 0;
+            }
+        };
+
+        const getShiftEndTime = (shift: ShiftType): number => {
+            switch (shift) {
+                case '早班': return 1615;
+                case '中班': return 2315;
+                case '夜班': return 815;
+                default: return 0;
+            }
+        };
+
+        const getPreviousShift = (shift: ShiftType): ShiftType => {
+            const shiftOrder: ShiftType[] = ['早班', '中班', '夜班'];
+            const currentIndex = shiftOrder.indexOf(shift);
+            return shiftOrder[(currentIndex - 1 + shiftOrder.length) % shiftOrder.length] as ShiftType;
+        };
+
+        const getNextShift = (shift: ShiftType): ShiftType => {
+            const shiftOrder: ShiftType[] = ['早班', '中班', '夜班'];
+            const currentIndex = shiftOrder.indexOf(shift);
+            return shiftOrder[(currentIndex + 1) % shiftOrder.length] as ShiftType;
+        };
+
+        // 獲取指定班別的班級代號
+        const getTeamByShift = (targetShift: ShiftType, date: string): string | null => {
+            for (const [teamKey] of Object.entries(TEAMS)) {
+                const teamShift = getShiftForDate(new Date(date), teamKey);
+                if (teamShift === targetShift) {
+                    return teamKey;
+                }
+            }
+            return null;
+        };
+
+        // 檢查是否與上一班結束時間重疊
+        const previousShiftEndTime = getShiftEndTime(getPreviousShift(shift));
+        if (startTimeInt === previousShiftEndTime) {
+            return getTeamByShift(getPreviousShift(shift), date);
+        }
+
+        // 檢查是否與下一班開始時間重疊
+        const nextShiftStartTime = getShiftStartTime(getNextShift(shift));
+        if (endTimeInt === nextShiftStartTime) {
+            return getTeamByShift(getNextShift(shift), date);
+        }
+
         return null;
     };
 
@@ -218,6 +395,47 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
             } else if (detailedLog) {
                 console.log(`  [Custom] Slot is confirmed. No suggestion needed.`);
             }
+        } else {
+            // 對於沒有設置加班記錄的請假，提供默認建議
+            if (record.period === 'fullDay') {
+                // 檢查當天是否有大休的班級
+                let bigRestTeam = null;
+                for (const [teamKey] of Object.entries(TEAMS)) {
+                    const teamShift = getShiftForDate(new Date(record.date), teamKey);
+                    if (teamShift === '大休') {
+                        bigRestTeam = teamKey;
+                        break;
+                    }
+                }
+
+                // 如果有大休班級，添加大休班級建議
+                if (bigRestTeam) {
+                    addSuggestion(bigRestTeam, 'BigRest');
+                    if (detailedLog) {
+                        console.log(`  [BigRest Default] Added suggestion '${bigRestTeam}' for full day leave (big rest team)`);
+                    }
+                }
+
+                // 同時計算拆班加班建議（與大休建議並存）
+                const halfDaySuggestions = getHalfDayOvertimeSuggestions(leaverOriginalTeam, record.date);
+                if (halfDaySuggestions.firstHalf && halfDaySuggestions.firstHalf !== '無建議') {
+                    const firstTeam = halfDaySuggestions.firstHalf.replace('班', '');
+                    addSuggestion(firstTeam, 'FH');
+                }
+                if (halfDaySuggestions.secondHalf && halfDaySuggestions.secondHalf !== '無建議') {
+                    const secondTeam = halfDaySuggestions.secondHalf.replace('班', '');
+                    addSuggestion(secondTeam, 'SH');
+                }
+            } else if (typeof record.period === 'object' && record.period.type === 'custom') {
+                // 對於自定義時段的請假，提供加班建議
+                const customSuggestion = getCustomOvertimeSuggestion(record.period.startTime, record.period.endTime, leaverOriginalTeam, record.date);
+                if (customSuggestion && customSuggestion !== leaverOriginalTeam) {
+                    addSuggestion(customSuggestion, 'Custom');
+                    if (detailedLog) {
+                        console.log(`  [Custom Default] Added suggestion '${customSuggestion}' for custom period ${record.period.startTime}-${record.period.endTime}`);
+                    }
+                }
+            }
         }
 
         if (detailedLog) {
@@ -309,10 +527,28 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
 
     // 判斷是否應該顯示請假記錄
     const shouldShowLeaveRecord = (record: LeaveRecord) => {
+        // 請假日曆：顯示所有請假記錄
         if (isLeaveMode) return true;
+
+        // 綜合輪班日曆（所有班別）：不顯示請假記錄，只顯示班表
         if (!selectedTeam) return false;
 
-        // 1. 指定本班且未確認
+        // 各班輪班日曆：顯示該班可以加班的請假記錄
+
+        const leaverTeam = getMemberTeam(record.name);
+
+        // 檢查是否為系統建議的加班班級
+        const suggestedTeams = getSuggestedOvertimeTeams(record);
+        const isSuggestedTeam = suggestedTeams.includes(selectedTeam);
+
+
+
+        // 如果是請假人員自己的班別，且不是系統建議的加班班級，則不顯示
+        if (leaverTeam === selectedTeam && !isSuggestedTeam) {
+            return false;
+        }
+
+        // 1. 已指定本班加班且未確認的記錄
         if (record.period === 'fullDay' && record.fullDayOvertime) {
             if (record.fullDayOvertime.type === '加整班' &&
                 record.fullDayOvertime.fullDayMember?.team === selectedTeam &&
@@ -330,18 +566,21 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                 }
             }
         }
+
+        // 2. 自定義時段且指定本班且未確認
         if (typeof record.period === 'object' && record.period.type === 'custom' &&
             record.customOvertime?.team === selectedTeam &&
             !record.customOvertime?.confirmed) {
             return true;
         }
 
-        // 2. 未指定班級但根據規則建議本班且未確認
-        // 只要 getSuggestedOvertimeTeams(record) 包含 selectedTeam
-        const suggestedTeams = getSuggestedOvertimeTeams(record);
+        // 3. 系統建議本班加班的記錄
         if (suggestedTeams.includes(selectedTeam)) {
-            // 但要確保該時段未被確認
-            if (record.period === 'fullDay' && record.fullDayOvertime) {
+            // 對於全天假，如果還沒有設置 fullDayOvertime 或者未確認，則顯示
+            if (record.period === 'fullDay') {
+                if (!record.fullDayOvertime) {
+                    return true; // 還沒有設置加班人員，顯示建議
+                }
                 if (record.fullDayOvertime.type === '加整班' && !record.fullDayOvertime.fullDayMember?.confirmed) {
                     return true;
                 }
@@ -351,10 +590,14 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                     }
                 }
             }
-            if (typeof record.period === 'object' && record.period.type === 'custom' && !record.customOvertime?.confirmed) {
-                return true;
+            // 對於自定義時段，如果還沒有設置 customOvertime 或者未確認，則顯示
+            if (typeof record.period === 'object' && record.period.type === 'custom') {
+                if (!record.customOvertime || !record.customOvertime.confirmed) {
+                    return true;
+                }
             }
         }
+
         return false;
     };
 
@@ -431,10 +674,7 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
         }
 
         // 獲取建議加班班級並檢查當前班級是否包含在內
-        const suggestedTeams = getSuggestedOvertimeTeams(record);
-        const result = suggestedTeams.includes(selectedTeam);
-        console.log(`建議加班標籤檢查: ${selectedTeam}, 結果: ${result}`);
-        return result;
+        return getSuggestedOvertimeTeams(record).includes(selectedTeam);
     };
 
     return (
@@ -524,11 +764,7 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                                 }}
                                 title={`${record.name} (${typeof record.period === 'object' ? `${format(parse(record.period.startTime, 'HH:mm', new Date()), 'HH:mm')} - ${format(parse(record.period.endTime, 'HH:mm', new Date()), 'HH:mm')}` : '全天'})${deficitLabel}`} // deficitLabel in title
                             >
-                                {record.name} {/* MODIFIED: Only show name directly */}
-                                {/* 若為建議加班班級，顯示標註 (Restored "可加班" span) */}
-                                {isLeaveMode && isSuggestedOvertime(record) && (
-                                    <span className="ml-1 px-1 py-0.5 bg-yellow-200 text-yellow-800 rounded text-[8px]">可加班</span>
-                                )}
+                                {record.name}
                             </div>
                         );
                     })}

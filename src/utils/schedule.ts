@@ -36,7 +36,6 @@ export const getShiftForDate = (date: Date | string, team: string): ShiftType | 
     }
 
     const shift = SHIFT_CYCLE[adjustedPosition];
-    console.log(`Team ${team} on ${date}: position=${adjustedPosition}, shift=${shift}`);
     return shift;
 };
 
