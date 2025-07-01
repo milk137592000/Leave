@@ -1,4 +1,4 @@
-import { TEAMS } from '@/data/teams';
+import { getTeamsForDate } from '@/data/teams';
 import { startOfWeek, endOfWeek, addDays, format } from 'date-fns';
 import { ShiftType } from '@/types/schedule';
 
@@ -39,9 +39,10 @@ export const getShiftForDate = (date: Date | string, team: string): ShiftType | 
     return shift;
 };
 
-// 獲取成員所屬班級
-export const getMemberTeam = (memberName: string): string | null => {
-    for (const [team, teamData] of Object.entries(TEAMS)) {
+// 獲取成員所屬班級（基於日期）
+export const getMemberTeam = (memberName: string, date?: string | Date): string | null => {
+    const teams = getTeamsForDate(date || new Date());
+    for (const [team, teamData] of Object.entries(teams)) {
         if (teamData.members.some(member => member.name === memberName)) {
             return team;
         }
@@ -49,9 +50,10 @@ export const getMemberTeam = (memberName: string): string | null => {
     return null;
 };
 
-// 獲取成員角色
-export const getMemberRole = (memberName: string): string | null => {
-    for (const teamData of Object.values(TEAMS)) {
+// 獲取成員角色（基於日期）
+export const getMemberRole = (memberName: string, date?: string | Date): string | null => {
+    const teams = getTeamsForDate(date || new Date());
+    for (const teamData of Object.values(teams)) {
         const member = teamData.members.find(member => member.name === memberName);
         if (member) {
             return member.role;

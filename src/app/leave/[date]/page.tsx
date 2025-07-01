@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format, isAfter, isToday, startOfDay, parse, addMinutes } from 'date-fns';
 import { useParams, useRouter } from 'next/navigation';
-import { TEAMS } from '@/data/teams';
+import { getTeamsForDate } from '@/data/teams';
 import { getShiftForDate, getMemberTeam, isTeamBigRestOnTuesday, findBigRestMembers, findRegularMembers, getMemberRole, TEAM_START_POSITIONS } from '@/utils/schedule';
 import type { ShiftType } from '@/types/schedule';
 import { LeaveRecord } from '@/models/LeaveRecord';
@@ -176,7 +176,8 @@ const getTeamByShift = (shift: ShiftType, isPreviousDay: boolean = false, curren
     if (isPreviousDay) {
         targetDate.setDate(targetDate.getDate() - 1);
     }
-    for (const [team, teamData] of Object.entries(TEAMS)) {
+    const teams = getTeamsForDate(targetDate);
+    for (const [team, teamData] of Object.entries(teams)) {
         const teamShift = getShiftForDate(targetDate, team);
         if (teamShift === shift) {
             return team;
@@ -334,7 +335,8 @@ const LeaveDatePage: React.FC = () => {
 
         // 找出當天大休的班級
         let bigRestTeam = null;
-        for (const [teamKey, teamData] of Object.entries(TEAMS)) {
+        const teams = getTeamsForDate(date);
+        for (const [teamKey, teamData] of Object.entries(teams)) {
             const shift = getShiftForDate(new Date(date), teamKey);
             if (shift === '大休') {
                 bigRestTeam = teamKey;
@@ -581,7 +583,7 @@ const LeaveDatePage: React.FC = () => {
                                     {/* 前半加班人員 */}
                                     <div className="p-3 bg-green-50 rounded-md border border-green-200">
                                         {(() => {
-                                            const team = getMemberTeam(record.name) || undefined;
+                                            const team = getMemberTeam(record.name, date) || undefined;
                                             const suggestions = getHalfDayOvertimeSuggestions(team, date);
                                             return (
                                                 <div className="mb-2">
@@ -633,7 +635,7 @@ const LeaveDatePage: React.FC = () => {
                                     {/* 後半加班人員 */}
                                     <div className="p-3 bg-green-50 rounded-md border border-green-200">
                                         {(() => {
-                                            const team = getMemberTeam(record.name) || undefined;
+                                            const team = getMemberTeam(record.name, date) || undefined;
                                             const suggestions = getHalfDayOvertimeSuggestions(team, date);
                                             return (
                                                 <div className="mb-2">
@@ -721,11 +723,12 @@ const LeaveDatePage: React.FC = () => {
         const customOvertime = record.customOvertime;
 
         // 獲取當前請假人員的班別
-        const leaveTeam = getMemberTeam(record.name);
-        const leaveRole = getMemberRole(record.name);
+        const leaveTeam = getMemberTeam(record.name, date);
+        const leaveRole = getMemberRole(record.name, date);
 
         // 獲取可用的加班人員列表
-        const candidates = Object.entries(TEAMS)
+        const teams = getTeamsForDate(date);
+        const candidates = Object.entries(teams)
             .filter(([team]) => team !== leaveTeam)
             .flatMap(([team, data]) => data.members.map(m => ({ ...m, team })));
 
@@ -1009,7 +1012,8 @@ const LeaveDatePage: React.FC = () => {
 
     // 生成班級選項時預先計算班別
     const teamOptions = React.useMemo(() => {
-        return Object.keys(TEAMS).map(teamKey => {
+        const teams = getTeamsForDate(date);
+        return Object.keys(teams).map(teamKey => {
             const teamShift = getShiftForDate(new Date(date), teamKey);
             return {
                 value: teamKey,
@@ -1057,7 +1061,8 @@ const LeaveDatePage: React.FC = () => {
 
     // 獲取當日大休的班級
     const getBigRestTeam = () => {
-        for (const team of Object.keys(TEAMS)) {
+        const teams = getTeamsForDate(date);
+        for (const team of Object.keys(teams)) {
             const shift = getShiftForDate(new Date(date), team);
             if (shift === '大休') {
                 return team;
@@ -1451,8 +1456,9 @@ const LeaveDatePage: React.FC = () => {
     };
 
     const getAvailableMembers = (team: string | undefined): string[] => {
-        if (!team || !(team in TEAMS)) return [];
-        const teamData = TEAMS[team as keyof typeof TEAMS];
+        const teams = getTeamsForDate(date);
+        if (!team || !(team in teams)) return [];
+        const teamData = teams[team as keyof typeof teams];
         if (!teamData) return [];
 
         // 過濾掉已請假的人員
@@ -1464,9 +1470,10 @@ const LeaveDatePage: React.FC = () => {
 
     // 取得當前班別的所有成員
     const getTeamMembers = (record: LeaveRecordType) => {
-        const team = getMemberTeam(record.name);
+        const team = getMemberTeam(record.name, date);
         if (!team) return [];
-        const teamData = TEAMS[team];
+        const teams = getTeamsForDate(date);
+        const teamData = teams[team];
         if (!teamData) return [];
         return teamData.members.map(m => m.name).filter(name => name !== record.name);
     };
@@ -1483,7 +1490,8 @@ const LeaveDatePage: React.FC = () => {
 
         // 檢查當天是否有大休的班級
         let bigRestTeam = null;
-        for (const [teamKey, teamData] of Object.entries(TEAMS)) {
+        const teams = getTeamsForDate(date);
+        for (const [teamKey, teamData] of Object.entries(teams)) {
             const teamShift = getShiftForDate(new Date(date), teamKey);
             if (teamShift === '大休') {
                 bigRestTeam = teamKey;
@@ -1529,12 +1537,14 @@ const LeaveDatePage: React.FC = () => {
 
         // 加整班時，只能選大休班級
         if (selectedType === '加整班' && bigRestTeam) {
-            return TEAMS[bigRestTeam].members
+            const teams = getTeamsForDate(date);
+            return teams[bigRestTeam].members
                 .map(m => ({ ...m, team: bigRestTeam }));
         }
 
         // 取得所有其他班的成員
-        let candidates = Object.entries(TEAMS)
+        const teams = getTeamsForDate(date);
+        let candidates = Object.entries(teams)
             .filter(([team]) => team !== leaveTeam)
             .flatMap(([team, data]) => data.members.map(m => ({ ...m, team })));
 
@@ -1650,7 +1660,8 @@ const LeaveDatePage: React.FC = () => {
 
         // 檢查當天是否有大休的班級
         let bigRestTeam = null;
-        for (const [teamKey] of Object.entries(TEAMS)) {
+        const teams = getTeamsForDate(date);
+        for (const [teamKey] of Object.entries(teams)) {
             const teamShift = getShiftForDate(new Date(date), teamKey);
             if (teamShift === '大休') {
                 bigRestTeam = teamKey;
@@ -1668,7 +1679,8 @@ const LeaveDatePage: React.FC = () => {
         const getCurrentTeam = (targetShift: ShiftType) => getTeamByShift(targetShift, false, date);
         const getPreviousTeam = (targetShift: ShiftType) => getTeamByShift(targetShift, true, date);
         const getRestTeam = (restType: '小休' | '大休') => {
-            for (const t of Object.keys(TEAMS)) {
+            const teams = getTeamsForDate(date);
+            for (const t of Object.keys(teams)) {
                 if (getTeamShift(t, date) === restType) {
                     return t;
                 }
@@ -1724,8 +1736,8 @@ const LeaveDatePage: React.FC = () => {
     };
 
     const FullDayLeaveCard: React.FC<{ record: LeaveRecordType }> = ({ record }) => {
-        const team = getMemberTeam(record.name) || undefined;
-        const memberRole = team ? getMemberRole(record.name) : undefined;
+        const team = getMemberTeam(record.name, date) || undefined;
+        const memberRole = team ? getMemberRole(record.name, date) : undefined;
         const teamShift = team ? getTeamShift(team, date) : null;
         // 移除加班卡簡易模式，不再顯示加班資訊
 
@@ -1743,8 +1755,8 @@ const LeaveDatePage: React.FC = () => {
     };
 
     const CustomLeaveCard: React.FC<{ record: LeaveRecordType }> = ({ record }) => {
-        const team = getMemberTeam(record.name) || undefined;
-        const memberRole = team ? getMemberRole(record.name) : undefined;
+        const team = getMemberTeam(record.name, date) || undefined;
+        const memberRole = team ? getMemberRole(record.name, date) : undefined;
         const teamShift = team ? getTeamShift(team, date) : null;
 
         return (
@@ -1776,8 +1788,8 @@ const LeaveDatePage: React.FC = () => {
                 <div className="space-y-4">
                     {leaveRecords.map((record, index) => {
                         if (!record) return null;
-                        const team = getMemberTeam(record.name) || undefined;
-                        const memberRole = team ? getMemberRole(record.name) : undefined;
+                        const team = getMemberTeam(record.name, date) || undefined;
+                        const memberRole = team ? getMemberRole(record.name, date) : undefined;
                         const isLeaveExpanded = expandedIndexes[index]?.leave;
                         const isOvertimeExpanded = expandedIndexes[index]?.overtime;
                         const teamShift = team ? getTeamShift(team, date) : null;

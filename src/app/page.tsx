@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Calendar from '@/components/Calendar';
-import { DaySchedule, ShiftType, TEAMS } from '@/types/schedule';
+import { DaySchedule, ShiftType, getTeamsForDate } from '@/types/schedule';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { TEAM_START_POSITIONS } from '@/utils/schedule';
@@ -98,7 +98,7 @@ export default function Home() {
     // 生成下拉選單選項
     const selectOptions = [
         { value: '請假', label: '請假' },
-        ...Object.keys(TEAMS).map(team => ({
+        ...Object.keys(getTeamsForDate(new Date())).map(team => ({
             value: team,
             label: `${team}班`
         })),
@@ -107,7 +107,8 @@ export default function Home() {
 
     // 獲取人員角色
     const getMemberRole = (memberName: string) => {
-        for (const teamData of Object.values(TEAMS)) {
+        const teams = getTeamsForDate(new Date());
+        for (const teamData of Object.values(teams)) {
             const member = teamData.members.find(m => m.name === memberName);
             if (member) return member.role;
         }
