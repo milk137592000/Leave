@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "check-schedule": "ts-node --project tsconfig.json src/scripts/checkSchedule.ts"
+    "check-schedule": "ts-node --project tsconfig.json src/scripts/checkSchedule.ts",
+    "test-db": "node test-mongodb-connection.js",
+    "test-line": "node test-line-connection.js"
   },
   "dependencies": {
     "@line/bot-sdk": "^10.0.0",

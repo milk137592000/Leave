@@ -263,6 +263,9 @@ export async function POST(request: Request) {
         // 發送 LINE 加班通知
         await sendOvertimeNotifications(leaveRecord);
 
+        // 發送Line加班機會通知
+        await sendLineOvertimeOpportunityNotification(leaveRecord);
+
         return NextResponse.json(leaveRecord);
     } catch (error) {
         console.error('Error creating leave record:', error);
@@ -389,7 +392,10 @@ export async function DELETE(request: Request) {
 
         await connectDB();
 
-        // 查找並刪除請假記錄
+        // 查找請假記錄（在刪除前獲取資訊用於通知）
+        const recordToDelete = await LeaveRecordModel.findOne({ date, name });
+
+        // 刪除請假記錄
         const result = await LeaveRecordModel.deleteOne({ date, name });
 
         if (result.deletedCount === 0) {
@@ -397,6 +403,11 @@ export async function DELETE(request: Request) {
                 { error: '找不到要刪除的請假記錄' },
                 { status: 404 }
             );
+        }
+
+        // 如果有加班需求，發送取消通知
+        if (recordToDelete && recordToDelete.fullDayOvertime) {
+            await sendLineOvertimeCancelledNotification(recordToDelete, '請假記錄已刪除');
         }
 
         return NextResponse.json({ message: '請假記錄已成功刪除' });
@@ -435,6 +446,12 @@ export async function PUT(request: Request) {
         // 明確處理取消加班的請求
         if (clearOvertime) {
             console.log('處理取消加班請求:', { date, name });
+
+            // 發送取消通知
+            if (record.fullDayOvertime) {
+                await sendLineOvertimeCancelledNotification(record, '加班需求已取消');
+            }
+
             record.fullDayOvertime = undefined;
             record.customOvertime = undefined;
             await record.save();
@@ -454,6 +471,18 @@ export async function PUT(request: Request) {
                 }
 
                 await updateOvertimeConfirm(record, overtimeType, memberType, confirm);
+
+                // 如果是確認加班，通知其他人機會已消失
+                if (confirm) {
+                    const confirmedMemberName = getConfirmedMemberName(record, overtimeType, memberType);
+                    if (confirmedMemberName) {
+                        await sendLineOvertimeCancelledNotification(
+                            record,
+                            `${confirmedMemberName} 已確認加班，此機會已不再開放`
+                        );
+                    }
+                }
+
                 return NextResponse.json(record);
             } catch (error) {
                 console.error('Error updating overtime confirmation:', error);
@@ -611,6 +640,20 @@ async function checkIfSmallRestTeam(team: string, date: string): Promise<boolean
     return shift === '小休';
 }
 
+// 獲取確認加班的人員姓名
+function getConfirmedMemberName(record: any, overtimeType: string, memberType: string): string | null {
+    if (overtimeType === '加整班' && record.fullDayOvertime?.fullDayMember) {
+        return record.fullDayOvertime.fullDayMember.name;
+    } else if (overtimeType === '加一半') {
+        if (memberType === '前半' && record.fullDayOvertime?.firstHalfMember) {
+            return record.fullDayOvertime.firstHalfMember.name;
+        } else if (memberType === '後半' && record.fullDayOvertime?.secondHalfMember) {
+            return record.fullDayOvertime.secondHalfMember.name;
+        }
+    }
+    return null;
+}
+
 // 發送加班通知的函數
 async function sendOvertimeNotifications(leaveRecord: any) {
     try {
@@ -714,6 +757,104 @@ function calculateOvertimeSuggestions(leaveRecord: any) {
     }
 
     return suggestions;
+}
+
+// 發送Line加班機會通知
+async function sendLineOvertimeOpportunityNotification(leaveRecord: any) {
+    try {
+        // 只有在 LINE Bot 配置正確時才發送通知
+        if (!process.env.LINE_CHANNEL_ACCESS_TOKEN || !process.env.LINE_CHANNEL_SECRET) {
+            console.log('LINE Bot 未配置，跳過Line加班機會通知');
+            return;
+        }
+
+        const { _id, date, name, team, period, fullDayOvertime } = leaveRecord;
+
+        // 檢查是否有加班需求
+        if (!fullDayOvertime || !fullDayOvertime.type) {
+            console.log('沒有加班需求，跳過Line通知');
+            return;
+        }
+
+        // 調用加班機會通知API
+        const notificationData: any = {
+            leaveRecordId: _id.toString(),
+            date,
+            requesterName: name,
+            requesterTeam: team,
+            overtimeType: fullDayOvertime.type
+        };
+
+        // 如果是加一半，需要指定前半或後半
+        if (fullDayOvertime.type === '加一半') {
+            if (!fullDayOvertime.firstHalfMember && fullDayOvertime.secondHalfMember) {
+                notificationData.halfType = 'first';
+            } else if (fullDayOvertime.firstHalfMember && !fullDayOvertime.secondHalfMember) {
+                notificationData.halfType = 'second';
+            }
+        }
+
+        // 發送內部API請求
+        const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/overtime-opportunity`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(notificationData)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Line加班機會通知發送成功:', result);
+        } else {
+            console.error('Line加班機會通知發送失敗:', await response.text());
+        }
+
+    } catch (error) {
+        console.error('發送Line加班機會通知時發生錯誤:', error);
+        // 不拋出錯誤，避免影響請假記錄的創建
+    }
+}
+
+// 發送Line加班取消通知
+async function sendLineOvertimeCancelledNotification(leaveRecord: any, reason: string = '請假已取消') {
+    try {
+        // 只有在 LINE Bot 配置正確時才發送通知
+        if (!process.env.LINE_CHANNEL_ACCESS_TOKEN || !process.env.LINE_CHANNEL_SECRET) {
+            console.log('LINE Bot 未配置，跳過Line加班取消通知');
+            return;
+        }
+
+        const { date, name, team } = leaveRecord;
+
+        // 調用加班取消通知API
+        const notificationData = {
+            date,
+            requesterName: name,
+            requesterTeam: team,
+            reason
+        };
+
+        // 發送內部API請求
+        const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/overtime-opportunity`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(notificationData)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Line加班取消通知發送成功:', result);
+        } else {
+            console.error('Line加班取消通知發送失敗:', await response.text());
+        }
+
+    } catch (error) {
+        console.error('發送Line加班取消通知時發生錯誤:', error);
+        // 不拋出錯誤，避免影響其他操作
+    }
 }
 
 // 格式化時段描述
