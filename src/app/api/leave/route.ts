@@ -80,7 +80,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { date, name, team, period, fullDayOvertime, customOvertime, overtime } = body;
+        const { date, name, team, period, fullDayOvertime, customOvertime, overtime, lineUserId } = body;
 
         // 驗證必要字段
         if (!date || !name) {
@@ -88,6 +88,23 @@ export async function POST(request: Request) {
                 { error: '日期和姓名為必填字段' },
                 { status: 400 }
             );
+        }
+
+        // 身份驗證 - 檢查用戶是否只為自己請假
+        if (lineUserId) {
+            const { verifyUserAuth } = await import('@/app/api/auth/verify/route');
+            const authResult = await verifyUserAuth(lineUserId, name);
+
+            if (!authResult.success) {
+                return NextResponse.json(
+                    {
+                        error: authResult.error,
+                        code: authResult.code,
+                        allowedMember: authResult.allowedMember
+                    },
+                    { status: 403 }
+                );
+            }
         }
 
         // 確保 MongoDB 連接

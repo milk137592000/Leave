@@ -9,6 +9,7 @@ import type { ShiftType } from '@/types/schedule';
 import { LeaveRecord } from '@/models/LeaveRecord';
 import type { TeamMember } from '@/data/teams';
 import { OvertimeMember, FullDayOvertime } from '@/models/LeaveRecord';
+import { useLineAuth } from '@/hooks/useLineAuth';
 
 // 8天循環的班別順序
 const SHIFT_CYCLE: ShiftType[] = [
@@ -200,6 +201,17 @@ const LeaveDatePage: React.FC = () => {
     const params = useParams();
     const date = params.date as string;
     const formattedDate = format(new Date(date), 'yyyy年MM月dd日');
+
+    // LINE 身份驗證
+    const {
+        isLiffReady,
+        isLoggedIn,
+        liffProfile,
+        userProfile,
+        isLoading: authLoading,
+        error: authError,
+        login
+    } = useLineAuth();
 
     const [selectedTeam, setSelectedTeam] = useState('');
     const [selectedMember, setSelectedMember] = useState('');
@@ -988,6 +1000,14 @@ const LeaveDatePage: React.FC = () => {
         fetchLeaveRecords();
     }, [date]);
 
+    // 身份驗證效果 - 當用戶已設定身份時，自動選擇對應的團隊和成員
+    useEffect(() => {
+        if (userProfile) {
+            setSelectedTeam(userProfile.team);
+            setSelectedMember(userProfile.memberName);
+        }
+    }, [userProfile]);
+
     // 在组件加载和日期改变时确定当天大休的班级
     useEffect(() => {
         // 查找当天大休的班级
@@ -1167,8 +1187,20 @@ const LeaveDatePage: React.FC = () => {
 
     // 處理提交請假
     const handleSubmit = async () => {
+        // 檢查身份驗證
+        if (!isLoggedIn || !userProfile) {
+            alert('請先登入 LINE 並設定身份');
+            return;
+        }
+
         if (!selectedTeam || !selectedMember) {
             alert('請選擇班級和人員');
+            return;
+        }
+
+        // 檢查是否只為自己請假
+        if (selectedMember !== userProfile.memberName) {
+            alert('您只能為自己請假');
             return;
         }
 
@@ -1201,7 +1233,8 @@ const LeaveDatePage: React.FC = () => {
                     type: 'custom',
                     startTime: formatTimeDisplay(customStartTime),
                     endTime: formatTimeDisplay(customEndTime)
-                } : 'fullDay'
+                } : 'fullDay',
+                lineUserId: liffProfile?.userId
             };
 
             console.log('提交請假數據:', payload);
@@ -2039,6 +2072,101 @@ const LeaveDatePage: React.FC = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [date, router]);
 
+    // 身份驗證載入中
+    if (authLoading) {
+        return (
+            <div className="max-w-md w-full mx-auto px-2 py-4 sm:py-8">
+                <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-gray-600">正在載入...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // 身份驗證錯誤
+    if (authError) {
+        return (
+            <div className="max-w-md w-full mx-auto px-2 py-4 sm:py-8">
+                <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                    <div className="text-red-500 mb-4">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-2">載入失敗</h2>
+                    <p className="text-gray-600 mb-4">{authError}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                    >
+                        重新載入
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // 未登入 LINE
+    if (!isLoggedIn) {
+        return (
+            <div className="max-w-md w-full mx-auto px-2 py-4 sm:py-8">
+                <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                    <div className="text-green-500 mb-4">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-2">需要登入</h2>
+                    <p className="text-gray-600 mb-4">請先登入 LINE 帳號才能使用請假功能</p>
+                    <button
+                        onClick={login}
+                        className="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 mb-2"
+                    >
+                        🔐 使用 LINE 登入
+                    </button>
+                    <button
+                        onClick={() => router.push('/')}
+                        className="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+                    >
+                        返回日曆
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // 未設定身份
+    if (!userProfile) {
+        return (
+            <div className="max-w-md w-full mx-auto px-2 py-4 sm:py-8">
+                <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                    <div className="text-blue-500 mb-4">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-2">需要設定身份</h2>
+                    <p className="text-gray-600 mb-2">您已登入 LINE：{liffProfile?.displayName}</p>
+                    <p className="text-gray-600 mb-4">請先設定您在輪值表中的身份才能使用請假功能</p>
+                    <button
+                        onClick={() => router.push('/line-setup')}
+                        className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 mb-2"
+                    >
+                        ⚙️ 設定身份
+                    </button>
+                    <button
+                        onClick={() => router.push('/')}
+                        className="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+                    >
+                        返回日曆
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             className="max-w-md w-full mx-auto px-2 py-4 sm:py-8"
@@ -2055,6 +2183,25 @@ const LeaveDatePage: React.FC = () => {
                     返回日曆
                 </button>
             </div>
+
+            {/* 顯示當前登入用戶資訊 */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                <div className="flex items-center">
+                    <div className="text-green-600 mr-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-sm font-medium text-green-800">
+                            {userProfile.displayName} ({userProfile.memberName})
+                        </p>
+                        <p className="text-xs text-green-600">
+                            {userProfile.team}班 {userProfile.role}
+                        </p>
+                    </div>
+                </div>
+            </div>
             <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-8">
                 {!showLeaveForm ? (
                     <button
@@ -2067,32 +2214,15 @@ const LeaveDatePage: React.FC = () => {
                     <form onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">班級</label>
-                            <select
-                                value={selectedTeam}
-                                onChange={e => setSelectedTeam(e.target.value)}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                            >
-                                <option value="">請選擇班級</option>
-                                {teamOptions.map(option => (
-                                    <option key={option.value} value={option.value} disabled={!option.canLeave}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+                                {userProfile.team}班 (已鎖定)
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">人員</label>
-                            <select
-                                value={selectedMember}
-                                onChange={e => setSelectedMember(e.target.value)}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                disabled={!selectedTeam}
-                            >
-                                <option value="">請選擇人員</option>
-                                {getAvailableMembers(selectedTeam).map(name => (
-                                    <option key={name} value={name}>{name}</option>
-                                ))}
-                            </select>
+                            <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+                                {userProfile.memberName} (只能為自己請假)
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">請假時段</label>
