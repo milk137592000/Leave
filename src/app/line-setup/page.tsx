@@ -97,14 +97,19 @@ export default function LineSetupPage() {
             const data = await response.json();
             console.log('用戶資料檢查結果:', data);
 
-            if (data.exists) {
+            if (data.exists && data.profile) {
+                console.log('用戶已有設定，顯示成功頁面');
                 setUserProfile(data.profile);
                 setSuccess(true);
                 return true;
+            } else {
+                console.log('用戶未設定，顯示選擇界面');
+                setSuccess(false);
+                return false;
             }
-            return false;
         } catch (error) {
             console.error('檢查用戶資料失敗:', error);
+            setSuccess(false);
             return false;
         }
     };
@@ -288,12 +293,23 @@ export default function LineSetupPage() {
                             當有加班需求時，系統會自動發送 LINE 訊息通知您。
                         </p>
 
-                        <button
-                            onClick={() => window.liff.closeWindow()}
-                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-                        >
-                            關閉視窗
-                        </button>
+                        <div className="space-y-2">
+                            <button
+                                onClick={() => {
+                                    setSuccess(false);
+                                    setUserProfile(null);
+                                }}
+                                className="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors"
+                            >
+                                重新設定身份
+                            </button>
+                            <button
+                                onClick={() => window.liff.closeWindow()}
+                                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                                關閉視窗
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
