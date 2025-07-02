@@ -67,15 +67,12 @@ export default function LineSetupPage() {
                         console.log('用戶資料:', profile); // 調試用
                         setLiffProfile(profile);
 
-                        // 檢查是否已有設定，如果沒有就顯示選擇界面
-                        const existingProfile = await checkExistingProfile(profile.userId);
-                        if (!existingProfile) {
-                            console.log('用戶未設定身份，顯示選擇界面');
-                            // 不做任何動作，讓用戶看到選擇界面
-                        }
+                        // 檢查是否已有設定
+                        await checkExistingProfile(profile.userId);
+                        // 無論是否已設定，都讓用戶看到界面（已設定會顯示成功頁面，未設定會顯示選擇界面）
                     } else {
-                        console.log('用戶未登入，開始登入流程'); // 調試用
-                        window.liff.login();
+                        console.log('用戶未登入，需要先登入'); // 調試用
+                        // 不自動登入，讓用戶手動點擊登入按鈕
                     }
                 } catch (error) {
                     console.error('LIFF 初始化失敗:', error);
@@ -235,10 +232,110 @@ export default function LineSetupPage() {
         );
     }
 
-    // 只有在 LIFF 準備好且用戶已登入但未設定身份時才顯示選擇界面
-    if (!isLiffReady || !liffProfile || success) {
-        // 這些情況下不顯示選擇界面
-        return null;
+    // 如果 LIFF 未準備好，顯示載入中
+    if (!isLiffReady) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="text-center max-w-md">
+                    {error ? (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div className="text-red-600 font-medium mb-2">初始化失敗</div>
+                            <p className="text-red-600 text-sm mb-4">{error}</p>
+                            <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                                <p>調試資訊：</p>
+                                <p>LIFF ID: {process.env.NEXT_PUBLIC_LIFF_ID || '未設定'}</p>
+                                <p>當前網址: {typeof window !== 'undefined' ? window.location.href : 'N/A'}</p>
+                            </div>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                重新載入
+                            </button>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                            <p className="mt-4 text-gray-600">正在初始化 LINE 登入...</p>
+                            <p className="mt-2 text-xs text-gray-400">LIFF ID: {process.env.NEXT_PUBLIC_LIFF_ID || '未設定'}</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // 如果用戶已設定完成，顯示成功頁面
+    if (success && userProfile) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md">
+                    <div className="text-center">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-900 mb-2">設定完成！</h2>
+                        <p className="text-gray-600 mb-4">您的身份已成功設定</p>
+
+                        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-gray-600">身份資訊：</p>
+                            <p className="font-medium">{userProfile.team}班 {userProfile.role} {userProfile.memberName}</p>
+                        </div>
+
+                        <p className="text-sm text-gray-500 mb-4">
+                            當有加班需求時，系統會自動發送 LINE 訊息通知您。
+                        </p>
+
+                        <button
+                            onClick={() => window.liff.closeWindow()}
+                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                            關閉視窗
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // 如果用戶未登入，顯示登入按鈕
+    if (!liffProfile) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md text-center">
+                    <h1 className="text-xl font-bold text-gray-900 mb-6">
+                        LINE 身份設定
+                    </h1>
+
+                    <div className="mb-6">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </div>
+                        <p className="text-gray-600 mb-4">
+                            請先登入您的 LINE 帳號，然後選擇您在輪值表中的身份。
+                        </p>
+                        <p className="text-sm text-gray-500">
+                            設定完成後，您將會收到相關的加班通知。
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={() => window.liff && window.liff.login()}
+                        className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 transition-colors font-medium"
+                    >
+                        🔐 使用 LINE 登入
+                    </button>
+
+                    <p className="text-xs text-gray-400 mt-4">
+                        點擊後將跳轉到 LINE 登入頁面
+                    </p>
+                </div>
+            </div>
+        );
     }
 
     return (
