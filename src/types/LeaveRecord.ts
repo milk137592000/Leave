@@ -41,6 +41,14 @@ export interface CustomOvertime {
     confirmed: boolean;
 }
 
+// 代理請假資訊
+export interface ProxyRequest {
+    isProxy: boolean;
+    proxyByName?: string;
+    proxyByLineUserId?: string;
+    proxyByDisplayName?: string;
+}
+
 export interface LeaveRecord {
     _id: string;
     date: string;
@@ -48,9 +56,10 @@ export interface LeaveRecord {
     team?: string;
     period: CustomPeriod | 'fullDay';
     confirmed: boolean;
+    proxyRequest?: ProxyRequest;  // 代理請假資訊
     overtime?: Overtime;  // 舊版加班資料（向後兼容）
     fullDayOvertime?: FullDayOvertime;
     customOvertime?: CustomOvertime;
     createdAt?: string;
     updatedAt?: string;
-} 
+}

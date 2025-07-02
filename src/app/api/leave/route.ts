@@ -80,7 +80,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { date, name, team, period, fullDayOvertime, customOvertime, overtime, lineUserId } = body;
+        const { date, name, team, period, fullDayOvertime, customOvertime, overtime, lineUserId, isProxyRequest } = body;
 
         // 驗證必要字段
         if (!date || !name) {
@@ -90,20 +90,47 @@ export async function POST(request: Request) {
             );
         }
 
-        // 身份驗證 - 檢查用戶是否只為自己請假
+        let proxyRequestInfo = null;
+
+        // 身份驗證邏輯
         if (lineUserId) {
             const { verifyUserAuth } = await import('@/app/api/auth/verify/route');
-            const authResult = await verifyUserAuth(lineUserId, name);
 
-            if (!authResult.success) {
-                return NextResponse.json(
-                    {
-                        error: authResult.error,
-                        code: authResult.code,
-                        allowedMember: authResult.allowedMember
-                    },
-                    { status: 403 }
-                );
+            if (isProxyRequest) {
+                // 代理請假：驗證請假人是否存在，但不限制只能為自己請假
+                const authResult = await verifyUserAuth(lineUserId);
+
+                if (!authResult.success) {
+                    return NextResponse.json(
+                        {
+                            error: authResult.error,
+                            code: authResult.code
+                        },
+                        { status: 403 }
+                    );
+                }
+
+                // 設定代理請假資訊
+                proxyRequestInfo = {
+                    isProxy: true,
+                    proxyByName: authResult.user?.memberName,
+                    proxyByLineUserId: lineUserId,
+                    proxyByDisplayName: authResult.user?.displayName
+                };
+            } else {
+                // 一般請假：檢查用戶是否只為自己請假
+                const authResult = await verifyUserAuth(lineUserId, name);
+
+                if (!authResult.success) {
+                    return NextResponse.json(
+                        {
+                            error: authResult.error,
+                            code: authResult.code,
+                            allowedMember: authResult.allowedMember
+                        },
+                        { status: 403 }
+                    );
+                }
             }
         }
 
@@ -167,6 +194,11 @@ export async function POST(request: Request) {
             customOvertime: undefined,
             fullDayOvertime: undefined
         };
+
+        // 只有在有代理請假資訊時才加入
+        if (proxyRequestInfo) {
+            leaveRecordData.proxyRequest = proxyRequestInfo;
+        }
 
         // 處理加班信息
         if (period === 'fullDay') {
@@ -276,6 +308,18 @@ export async function POST(request: Request) {
         // 保存請假記錄
         const leaveRecord = new LeaveRecordModel(leaveRecordData);
         await leaveRecord.save();
+
+        // 如果是代理請假，發送通知給被請假的人
+        if (proxyRequestInfo && proxyRequestInfo.isProxy) {
+            const { sendProxyLeaveNotification } = await import('@/services/lineBot');
+            await sendProxyLeaveNotification(name, {
+                proxyByName: proxyRequestInfo.proxyByName || '',
+                proxyByDisplayName: proxyRequestInfo.proxyByDisplayName || '',
+                targetMemberName: name,
+                date,
+                period
+            });
+        }
 
         // 發送 LINE 加班通知
         await sendOvertimeNotifications(leaveRecord);

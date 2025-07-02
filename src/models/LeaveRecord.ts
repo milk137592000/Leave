@@ -131,6 +131,29 @@ const LeaveRecordSchema = new mongoose.Schema({
         required: true,
         default: false
     },
+    // 代理請假資訊
+    proxyRequest: {
+        type: {
+            isProxy: {
+                type: Boolean,
+                default: false
+            },
+            proxyByName: {
+                type: String,
+                required: false
+            },
+            proxyByLineUserId: {
+                type: String,
+                required: false
+            },
+            proxyByDisplayName: {
+                type: String,
+                required: false
+            }
+        },
+        required: false,
+        default: undefined
+    },
     // 甲加班單（對應全天假）
     fullDayOvertime: {
         type: FullDayOvertimeSchema,

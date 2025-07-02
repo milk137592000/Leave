@@ -289,20 +289,17 @@ export default function LineSetupPage() {
                             <p className="font-medium">{userProfile.team}班 {userProfile.role} {userProfile.memberName}</p>
                         </div>
 
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                            <p className="text-sm text-yellow-800">
+                                ⚠️ 身份一旦設定完成即無法更改，請確保資訊正確。
+                            </p>
+                        </div>
+
                         <p className="text-sm text-gray-500 mb-4">
                             當有加班需求時，系統會自動發送 LINE 訊息通知您。
                         </p>
 
                         <div className="space-y-2">
-                            <button
-                                onClick={() => {
-                                    setSuccess(false);
-                                    setUserProfile(null);
-                                }}
-                                className="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors"
-                            >
-                                重新設定身份
-                            </button>
                             <button
                                 onClick={() => window.liff.closeWindow()}
                                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
@@ -373,6 +370,24 @@ export default function LineSetupPage() {
                             <p className="text-red-600 text-sm">{error}</p>
                         </div>
                     )}
+
+                    <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-start">
+                            <div className="text-yellow-600 mr-2 mt-0.5">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-medium text-yellow-800 mb-1">重要提醒</h3>
+                                <ul className="text-sm text-yellow-700 space-y-1">
+                                    <li>• 身份一旦設定完成即無法更改</li>
+                                    <li>• 每個輪值表成員只能綁定一個 LINE 帳號</li>
+                                    <li>• 請確保選擇正確的班級、角色和姓名</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
 
                     <div className="space-y-4">
                         {/* 選擇班級 */}

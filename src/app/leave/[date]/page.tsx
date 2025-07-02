@@ -109,6 +109,12 @@ interface LeaveRecordType {
     team?: string;
     period: Period;
     confirmed: boolean;
+    proxyRequest?: {
+        isProxy: boolean;
+        proxyByName?: string;
+        proxyByLineUserId?: string;
+        proxyByDisplayName?: string;
+    };
     fullDayOvertime?: {
         type: '加整班' | '加一半';
         confirmed: boolean;
@@ -241,6 +247,7 @@ const LeaveDatePage: React.FC = () => {
     const touchEndX = useRef<number | null>(null);
     const [expandedIndexes, setExpandedIndexes] = useState<{[key:number]: {leave: boolean, overtime: boolean}}>({});
     const [showLeaveForm, setShowLeaveForm] = useState(false);
+    const [leaveType, setLeaveType] = useState<'self' | 'proxy'>('self');
 
     const toggleExpand = (index: number, type: 'leave' | 'overtime') => {
         setExpandedIndexes(prev => ({
@@ -1000,13 +1007,17 @@ const LeaveDatePage: React.FC = () => {
         fetchLeaveRecords();
     }, [date]);
 
-    // 身份驗證效果 - 當用戶已設定身份時，自動選擇對應的團隊和成員
+    // 身份驗證效果 - 當用戶已設定身份且為自己請假時，自動選擇對應的團隊和成員
     useEffect(() => {
-        if (userProfile) {
+        if (userProfile && leaveType === 'self') {
             setSelectedTeam(userProfile.team);
             setSelectedMember(userProfile.memberName);
+        } else if (leaveType === 'proxy') {
+            // 替人請假時清空選擇
+            setSelectedTeam('');
+            setSelectedMember('');
         }
-    }, [userProfile]);
+    }, [userProfile, leaveType]);
 
     // 在组件加载和日期改变时确定当天大休的班级
     useEffect(() => {
@@ -1198,10 +1209,19 @@ const LeaveDatePage: React.FC = () => {
             return;
         }
 
-        // 檢查是否只為自己請假
-        if (selectedMember !== userProfile.memberName) {
-            alert('您只能為自己請假');
-            return;
+        // 根據請假類型進行不同的驗證
+        if (leaveType === 'self') {
+            // 為自己請假：檢查是否只為自己請假
+            if (selectedMember !== userProfile.memberName) {
+                alert('您只能為自己請假');
+                return;
+            }
+        } else if (leaveType === 'proxy') {
+            // 替人請假：檢查不能為自己請假
+            if (selectedMember === userProfile.memberName) {
+                alert('替人請假時不能選擇自己');
+                return;
+            }
         }
 
         if (selectedPeriod === 'custom') {
@@ -1234,7 +1254,8 @@ const LeaveDatePage: React.FC = () => {
                     startTime: formatTimeDisplay(customStartTime),
                     endTime: formatTimeDisplay(customEndTime)
                 } : 'fullDay',
-                lineUserId: liffProfile?.userId
+                lineUserId: liffProfile?.userId,
+                isProxyRequest: leaveType === 'proxy'
             };
 
             console.log('提交請假數據:', payload);
@@ -1927,9 +1948,16 @@ const LeaveDatePage: React.FC = () => {
                                     onClick={() => toggleExpand(index, 'leave')}
                                 >
                                     {!isLeaveExpanded ? (
-                                        <div className="flex items-center justify-center h-full min-h-[40px] text-base font-semibold">
-                                            <span className="text-gray-800">{record.name}</span>
-                                            <span className="text-[0.67em] ml-1 text-gray-600">{teamShift}{record.team?.replace('班', '')}</span>
+                                        <div className="flex flex-col items-center justify-center h-full min-h-[40px] text-base font-semibold">
+                                            <div className="flex items-center">
+                                                <span className="text-gray-800">{record.name}</span>
+                                                <span className="text-[0.67em] ml-1 text-gray-600">{teamShift}{record.team?.replace('班', '')}</span>
+                                            </div>
+                                            {record.proxyRequest?.isProxy && (
+                                                <div className="text-xs text-orange-600 mt-1">
+                                                    由 {record.proxyRequest.proxyByName} 代理請假
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="relative z-30">
@@ -2212,17 +2240,78 @@ const LeaveDatePage: React.FC = () => {
                     </button>
                 ) : (
                     <form onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
+                        {/* 請假類型選擇 */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">班級</label>
-                            <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
-                                {userProfile.team}班 (已鎖定)
+                            <label className="block text-sm font-medium text-gray-700 mb-2">請假類型</label>
+                            <div className="flex gap-4">
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="leaveType"
+                                        value="self"
+                                        checked={leaveType === 'self'}
+                                        onChange={() => setLeaveType('self')}
+                                        className="mr-2"
+                                    />
+                                    為自己請假
+                                </label>
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="leaveType"
+                                        value="proxy"
+                                        checked={leaveType === 'proxy'}
+                                        onChange={() => setLeaveType('proxy')}
+                                        className="mr-2"
+                                    />
+                                    替人請假
+                                </label>
                             </div>
                         </div>
+
+                        {/* 班級選擇 */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">班級</label>
+                            {leaveType === 'self' ? (
+                                <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+                                    {userProfile.team}班 (已鎖定)
+                                </div>
+                            ) : (
+                                <select
+                                    value={selectedTeam}
+                                    onChange={e => setSelectedTeam(e.target.value)}
+                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                >
+                                    <option value="">請選擇班級</option>
+                                    {teamOptions.map(option => (
+                                        <option key={option.value} value={option.value} disabled={!option.canLeave}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+
+                        {/* 人員選擇 */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">人員</label>
-                            <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
-                                {userProfile.memberName} (只能為自己請假)
-                            </div>
+                            {leaveType === 'self' ? (
+                                <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+                                    {userProfile.memberName} (只能為自己請假)
+                                </div>
+                            ) : (
+                                <select
+                                    value={selectedMember}
+                                    onChange={e => setSelectedMember(e.target.value)}
+                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                    disabled={!selectedTeam}
+                                >
+                                    <option value="">請選擇人員</option>
+                                    {getAvailableMembers(selectedTeam).map(name => (
+                                        <option key={name} value={name}>{name}</option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">請假時段</label>

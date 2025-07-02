@@ -86,13 +86,22 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
-        
+
+        // 檢查該 LINE 用戶是否已經綁定身份
+        const currentUserProfile = await UserProfile.findOne({ lineUserId });
+        if (currentUserProfile) {
+            return NextResponse.json(
+                { error: '您已經設定過身份，無法重新設定' },
+                { status: 409 }
+            );
+        }
+
         // 檢查該成員是否已被其他 LINE 用戶綁定
-        const existingProfile = await UserProfile.findOne({ 
+        const existingProfile = await UserProfile.findOne({
             memberName,
             lineUserId: { $ne: lineUserId }
         });
-        
+
         if (existingProfile) {
             return NextResponse.json(
                 { error: '該成員已被其他 LINE 帳號綁定' },
@@ -100,24 +109,18 @@ export async function POST(request: NextRequest) {
             );
         }
         
-        // 創建或更新用戶資料
-        const userProfile = await UserProfile.findOneAndUpdate(
-            { lineUserId },
-            {
-                lineUserId,
-                displayName,
-                pictureUrl,
-                team,
-                role,
-                memberName,
-                notificationEnabled: true
-            },
-            { 
-                upsert: true, 
-                new: true,
-                runValidators: true
-            }
-        );
+        // 創建新的用戶資料（不允許更新）
+        const userProfile = new UserProfile({
+            lineUserId,
+            displayName,
+            pictureUrl,
+            team,
+            role,
+            memberName,
+            notificationEnabled: true
+        });
+
+        await userProfile.save();
         
         // 發送測試訊息
         await sendTestMessage(lineUserId);

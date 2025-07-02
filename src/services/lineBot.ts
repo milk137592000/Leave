@@ -18,6 +18,14 @@ export interface OvertimeNotification {
     reason: string;
 }
 
+export interface ProxyLeaveNotification {
+    proxyByName: string;
+    proxyByDisplayName: string;
+    targetMemberName: string;
+    date: string;
+    period: string;
+}
+
 /**
  * 發送加班通知給指定的 LINE 用戶
  */
@@ -652,6 +660,72 @@ async function sendUnknownCommandMessage(lineUserId: string): Promise<void> {
     } catch (error) {
         console.error('發送未知指令訊息失敗:', error);
     }
+}
+
+/**
+ * 發送代理請假通知給被請假的人
+ */
+export async function sendProxyLeaveNotification(
+    targetMemberName: string,
+    notification: ProxyLeaveNotification
+): Promise<boolean> {
+    try {
+        // 根據成員名稱查找對應的 LINE 用戶
+        const connectDB = (await import('@/lib/mongodb')).default;
+        const UserProfile = (await import('@/models/UserProfile')).default;
+
+        await connectDB();
+
+        const userProfile = await UserProfile.findOne({ memberName: targetMemberName });
+
+        if (!userProfile) {
+            console.log(`找不到成員 ${targetMemberName} 的 LINE 綁定資訊`);
+            return false;
+        }
+
+        const message: TextMessage = {
+            type: 'text',
+            text: createProxyLeaveMessage(notification)
+        };
+
+        await client.pushMessage(userProfile.lineUserId, message);
+        console.log(`代理請假通知已發送給 ${targetMemberName} (${userProfile.lineUserId})`);
+        return true;
+    } catch (error) {
+        console.error('發送代理請假通知失敗:', error);
+        return false;
+    }
+}
+
+/**
+ * 創建代理請假通知訊息
+ */
+function createProxyLeaveMessage(notification: ProxyLeaveNotification): string {
+    const { proxyByName, proxyByDisplayName, targetMemberName, date, period } = notification;
+
+    const formattedDate = new Date(date).toLocaleDateString('zh-TW', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+    });
+
+    let periodText = '';
+    if (period === 'fullDay') {
+        periodText = '全天';
+    } else if (typeof period === 'object' && period.type === 'custom') {
+        periodText = `${period.startTime} - ${period.endTime}`;
+    }
+
+    return `📋 代理請假通知
+
+${proxyByName} (${proxyByDisplayName}) 已為您申請請假：
+
+📅 日期：${formattedDate}
+⏰ 時段：${periodText}
+👤 請假人：${targetMemberName}
+
+如有疑問，請聯繫 ${proxyByName}。`;
 }
 
 /**
