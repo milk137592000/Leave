@@ -23,7 +23,7 @@ export interface ProxyLeaveNotification {
     proxyByDisplayName: string;
     targetMemberName: string;
     date: string;
-    period: string;
+    period: 'fullDay' | { type: 'custom'; startTime: string; endTime: string; };
 }
 
 /**

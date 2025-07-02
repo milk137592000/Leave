@@ -94,7 +94,7 @@ export async function POST(request: Request) {
 
         // 身份驗證邏輯
         if (lineUserId) {
-            const { verifyUserAuth } = await import('@/app/api/auth/verify/route');
+            const { verifyUserAuth } = await import('@/lib/auth');
 
             if (isProxyRequest) {
                 // 代理請假：驗證請假人是否存在，但不限制只能為自己請假
