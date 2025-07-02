@@ -44,8 +44,10 @@ export default function LineSetupPage() {
     const initializeLiff = async () => {
         try {
             const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+            console.log('LIFF ID:', liffId); // 調試用
+
             if (!liffId) {
-                setError('LIFF ID 未設定');
+                setError('LIFF ID 未設定，請檢查環境變數 NEXT_PUBLIC_LIFF_ID');
                 return;
             }
 
@@ -54,39 +56,59 @@ export default function LineSetupPage() {
             script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
             script.onload = async () => {
                 try {
+                    console.log('開始初始化 LIFF...'); // 調試用
                     await window.liff.init({ liffId });
+                    console.log('LIFF 初始化成功'); // 調試用
                     setIsLiffReady(true);
 
                     if (window.liff.isLoggedIn()) {
+                        console.log('用戶已登入'); // 調試用
                         const profile = await window.liff.getProfile();
+                        console.log('用戶資料:', profile); // 調試用
                         setLiffProfile(profile);
-                        await checkExistingProfile(profile.userId);
+
+                        // 檢查是否已有設定，如果沒有就顯示選擇界面
+                        const existingProfile = await checkExistingProfile(profile.userId);
+                        if (!existingProfile) {
+                            console.log('用戶未設定身份，顯示選擇界面');
+                            // 不做任何動作，讓用戶看到選擇界面
+                        }
                     } else {
+                        console.log('用戶未登入，開始登入流程'); // 調試用
                         window.liff.login();
                     }
                 } catch (error) {
                     console.error('LIFF 初始化失敗:', error);
-                    setError('LIFF 初始化失敗');
+                    setError(`LIFF 初始化失敗: ${error instanceof Error ? error.message : String(error)}`);
                 }
+            };
+            script.onerror = () => {
+                console.error('載入 LIFF SDK 失敗');
+                setError('載入 LIFF SDK 失敗');
             };
             document.head.appendChild(script);
         } catch (error) {
             console.error('載入 LIFF SDK 失敗:', error);
-            setError('載入 LIFF SDK 失敗');
+            setError(`載入 LIFF SDK 失敗: ${error instanceof Error ? error.message : String(error)}`);
         }
     };
 
-    const checkExistingProfile = async (lineUserId: string) => {
+    const checkExistingProfile = async (lineUserId: string): Promise<boolean> => {
         try {
+            console.log('檢查用戶資料:', lineUserId);
             const response = await fetch(`/api/user-profile?lineUserId=${lineUserId}`);
             const data = await response.json();
+            console.log('用戶資料檢查結果:', data);
 
             if (data.exists) {
                 setUserProfile(data.profile);
                 setSuccess(true);
+                return true;
             }
+            return false;
         } catch (error) {
             console.error('檢查用戶資料失敗:', error);
+            return false;
         }
     };
 
@@ -149,10 +171,31 @@ export default function LineSetupPage() {
 
     if (!isLiffReady) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">正在初始化 LINE 登入...</p>
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="text-center max-w-md">
+                    {error ? (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div className="text-red-600 font-medium mb-2">初始化失敗</div>
+                            <p className="text-red-600 text-sm mb-4">{error}</p>
+                            <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                                <p>調試資訊：</p>
+                                <p>LIFF ID: {process.env.NEXT_PUBLIC_LIFF_ID || '未設定'}</p>
+                                <p>當前網址: {typeof window !== 'undefined' ? window.location.href : 'N/A'}</p>
+                            </div>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                重新載入
+                            </button>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                            <p className="mt-4 text-gray-600">正在初始化 LINE 登入...</p>
+                            <p className="mt-2 text-xs text-gray-400">LIFF ID: {process.env.NEXT_PUBLIC_LIFF_ID || '未設定'}</p>
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -192,6 +235,12 @@ export default function LineSetupPage() {
         );
     }
 
+    // 只有在 LIFF 準備好且用戶已登入但未設定身份時才顯示選擇界面
+    if (!isLiffReady || !liffProfile || success) {
+        // 這些情況下不顯示選擇界面
+        return null;
+    }
+
     return (
         <div className="min-h-screen bg-gray-50 p-4">
             <div className="max-w-md mx-auto">
@@ -200,12 +249,11 @@ export default function LineSetupPage() {
                         設定您的身份
                     </h1>
 
-                    {liffProfile && (
-                        <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                            <p className="text-sm text-gray-600">LINE 用戶：</p>
-                            <p className="font-medium">{liffProfile.displayName}</p>
-                        </div>
-                    )}
+                    <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                        <p className="text-sm text-gray-600">LINE 用戶：</p>
+                        <p className="font-medium">{liffProfile.displayName}</p>
+                        <p className="text-xs text-gray-500 mt-1">User ID: {liffProfile.userId}</p>
+                    </div>
 
                     {error && (
                         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
