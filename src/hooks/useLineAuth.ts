@@ -95,6 +95,7 @@ export function useLineAuth(): UseLineAuthReturn {
             console.log('開始初始化 LIFF...');
             if ((window as any).liff.isInClient === undefined) {
                 console.log('LIFF 尚未初始化，開始初始化...');
+                console.log('使用 LIFF ID:', liffId);
                 await (window as any).liff.init({ liffId: liffId });
                 console.log('✅ LIFF 初始化成功');
             } else {
@@ -103,14 +104,14 @@ export function useLineAuth(): UseLineAuthReturn {
 
             setIsLiffReady(true);
 
-            // 檢查登入狀態
-            const loggedIn = checkIsLoggedIn();
+            // 檢查登入狀態 - 直接使用 window.liff
+            const loggedIn = (window as any).liff.isLoggedIn();
             console.log('登入狀態:', loggedIn);
             setIsLoggedIn(loggedIn);
 
             if (loggedIn) {
                 try {
-                    const profile = await getProfile();
+                    const profile = await (window as any).liff.getProfile();
                     console.log('獲取用戶資料成功:', profile);
                     setLiffProfile(profile);
                     await checkUserProfile(profile.userId);
@@ -180,10 +181,10 @@ export function useLineAuth(): UseLineAuthReturn {
             if (win) {
                 const redirectUrl = `${win.location.origin}/line-redirect`;
                 console.log('登入重定向 URL:', redirectUrl);
-                liffLogin(redirectUrl);
+                (window as any).liff.login({ redirectUri: redirectUrl });
             } else {
                 // 服務端渲染時的備用方案
-                liffLogin('https://leave-ten.vercel.app/line-redirect');
+                (window as any).liff.login({ redirectUri: 'https://leave-ten.vercel.app/line-redirect' });
             }
         } catch (err) {
             console.error('登入失敗:', err);
@@ -195,7 +196,7 @@ export function useLineAuth(): UseLineAuthReturn {
     const logout = () => {
         try {
             console.log('登出 LINE...');
-            liffLogout();
+            (window as any).liff.logout();
             setIsLoggedIn(false);
             setLiffProfile(null);
             setUserProfile(null);
