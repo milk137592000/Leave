@@ -92,14 +92,14 @@ export default function LiffDebugPage() {
                                 pictureUrl: profile.pictureUrl
                             };
                         } catch (error) {
-                            info.profileError = error.message;
+                            info.profileError = error instanceof Error ? error.message : String(error);
                         }
                     }
                 }
 
                 setLiffStatus('檢查完成');
             } catch (error) {
-                info.liffError = error.message;
+                info.liffError = error instanceof Error ? error.message : String(error);
                 setLiffStatus('檢查失敗');
             }
 
