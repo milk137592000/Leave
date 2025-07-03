@@ -9,21 +9,20 @@ declare global {
 const FALLBACK_LIFF_ID = '2007680034-QnRpBayW';
 
 /**
- * 獲取 LIFF ID
+ * 獲取 LIFF ID - 強制使用硬編碼值
  */
 export function getLiffId(): string {
-    // 直接使用硬編碼值，確保總是有效
+    // 強制使用硬編碼值，完全不依賴環境變數
     const liffId = FALLBACK_LIFF_ID;
 
-    console.log('獲取 LIFF ID:', {
-        envLiffId: process.env.NEXT_PUBLIC_LIFF_ID,
-        fallbackId: FALLBACK_LIFF_ID,
-        finalId: liffId,
-        isValid: !!liffId && liffId.trim() !== ''
-    });
+    console.log('=== 獲取 LIFF ID ===');
+    console.log('硬編碼 LIFF ID:', liffId);
+    console.log('LIFF ID 長度:', liffId.length);
+    console.log('LIFF ID 類型:', typeof liffId);
+    console.log('LIFF ID 格式檢查:', /^\d{10}-[a-zA-Z0-9]{8}$/.test(liffId));
 
-    if (!liffId || liffId.trim() === '') {
-        throw new Error('LIFF ID 無效');
+    if (!liffId || typeof liffId !== 'string' || liffId.trim() === '') {
+        throw new Error(`LIFF ID 無效: "${liffId}"`);
     }
 
     return liffId;
@@ -117,33 +116,28 @@ export async function initializeLiff(): Promise<void> {
     // 不檢查是否已初始化，強制重新初始化
     console.log('強制重新初始化 LIFF');
 
-    console.log(`準備初始化 LIFF，ID: "${liffId}"`);
+    console.log(`=== 準備初始化 LIFF ===`);
+    console.log(`LIFF ID: "${liffId}"`);
     console.log('LIFF 初始化參數:', { liffId: liffId });
 
-    // 嘗試多種 LIFF ID 格式
-    const liffIds = [
-        liffId,
-        liffId.trim(),
-        '2007680034-QnRpBayW', // 硬編碼備用
-        '1234567890-abcdefgh'  // 測試格式
-    ];
-
-    let lastError = null;
-
-    for (const testLiffId of liffIds) {
-        try {
-            console.log(`嘗試使用 LIFF ID: "${testLiffId}"`);
-            if (win && win.liff) {
-                await win.liff.init({ liffId: testLiffId });
-                console.log(`✅ LIFF 初始化成功，使用 ID: ${testLiffId}`);
-                return;
+    // 直接使用硬編碼的 LIFF ID，不嘗試其他格式
+    try {
+        console.log(`使用硬編碼 LIFF ID: "${liffId}"`);
+        if (win && win.liff) {
+            // 檢查是否已經初始化
+            if (win.liff.isInClient === undefined) {
+                await win.liff.init({ liffId: liffId });
+                console.log(`✅ LIFF 初始化成功，使用 ID: ${liffId}`);
             } else {
-                throw new Error('LIFF SDK 未載入');
+                console.log('LIFF 已經初始化過');
             }
-        } catch (error) {
-            console.error(`❌ LIFF ID "${testLiffId}" 初始化失敗:`, error);
-            lastError = error;
+            return;
+        } else {
+            throw new Error('LIFF SDK 未載入');
         }
+    } catch (error) {
+        console.error(`❌ LIFF 初始化失敗:`, error);
+        throw error;
     }
 
     // 如果所有 LIFF ID 都失敗

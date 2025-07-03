@@ -53,18 +53,16 @@ export default function LineSetupPage() {
         }
 
         try {
-            let liffId = process.env.NEXT_PUBLIC_LIFF_ID;
-            console.log('環境變數 LIFF ID:', liffId); // 調試用
+            // 強制使用硬編碼 LIFF ID，完全不依賴環境變數
+            const liffId = '2007680034-QnRpBayW';
+            console.log('=== LIFF 初始化開始 ===');
+            console.log('強制使用硬編碼 LIFF ID:', liffId);
+            console.log('LIFF ID 長度:', liffId.length);
+            console.log('LIFF ID 類型:', typeof liffId);
 
-            // 如果環境變數未設定，使用硬編碼值
-            if (!liffId || liffId.trim() === '') {
-                liffId = '2007680034-QnRpBayW';
-                console.log('使用硬編碼 LIFF ID:', liffId);
-            }
-
-            if (!liffId || liffId.trim() === '') {
-                setError('LIFF ID 仍然無效');
-                return;
+            // 驗證 LIFF ID 格式
+            if (!liffId || typeof liffId !== 'string' || liffId.length === 0) {
+                throw new Error(`LIFF ID 無效: "${liffId}"`);
             }
 
             // 檢查是否已經載入 LIFF SDK
@@ -101,13 +99,15 @@ export default function LineSetupPage() {
                 try {
                     console.log('LIFF SDK 載入成功，檢查初始化狀態...');
 
-                    // 檢查是否已經初始化
-                    if (window.liff.isInClient !== undefined) {
-                        console.log('LIFF 已經初始化，跳過重複初始化');
+                    // 強制重新初始化，不檢查是否已初始化
+                    console.log('開始初始化 LIFF...');
+                    console.log('調用 liff.init，參數:', { liffId });
+
+                    if (window.liff.isInClient === undefined) {
+                        await window.liff.init({ liffId: liffId });
+                        console.log('✅ LIFF 初始化成功');
                     } else {
-                        console.log('開始初始化 LIFF...');
-                        await window.liff.init({ liffId });
-                        console.log('LIFF 初始化成功');
+                        console.log('LIFF 已經初始化過');
                     }
 
                     setIsLiffReady(true);

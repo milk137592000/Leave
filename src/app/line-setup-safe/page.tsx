@@ -35,9 +35,12 @@ export default function LineSetupSafePage() {
                     });
                 }
 
-                const liffId = process.env.NEXT_PUBLIC_LIFF_ID || '2007680034-QnRpBayW';
-                console.log('使用 LIFF ID:', liffId);
-                console.log('環境變數 NEXT_PUBLIC_LIFF_ID:', process.env.NEXT_PUBLIC_LIFF_ID);
+                // 強制使用硬編碼 LIFF ID，完全不依賴環境變數
+                const liffId = '2007680034-QnRpBayW';
+                console.log('=== LIFF 初始化開始 (Safe版本) ===');
+                console.log('強制使用硬編碼 LIFF ID:', liffId);
+                console.log('LIFF ID 長度:', liffId.length);
+                console.log('LIFF ID 類型:', typeof liffId);
 
                 // 驗證 LIFF ID
                 if (!liffId || liffId.trim() === '') {
