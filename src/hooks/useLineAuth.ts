@@ -214,15 +214,9 @@ export function useLineAuth(): UseLineAuthReturn {
                 console.log('保存重定向目標:', currentUrl);
             }
 
-            // 使用 LIFF Endpoint URL 作為重定向目標
-            if (win) {
-                const redirectUrl = `${win.location.origin}/line-setup`;
-                console.log('登入重定向 URL (使用 LIFF Endpoint):', redirectUrl);
-                (window as any).liff.login({ redirectUri: redirectUrl });
-            } else {
-                // 服務端渲染時的備用方案
-                (window as any).liff.login({ redirectUri: 'https://leave-ten.vercel.app/line-setup' });
-            }
+            // 使用 LIFF 默認行為，不指定 redirectUri
+            console.log('使用 LIFF 默認重定向行為');
+            (window as any).liff.login();
         } catch (err) {
             console.error('登入失敗:', err);
             setError('登入失敗，請稍後再試');
