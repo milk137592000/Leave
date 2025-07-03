@@ -2,15 +2,42 @@
 
 import { useEffect, useState } from 'react';
 
+interface DebugInfo {
+    timestamp?: string;
+    userAgent?: string;
+    currentUrl?: string;
+    origin?: string;
+    hostname?: string;
+    protocol?: string;
+    isHttps?: boolean;
+    liffId?: string;
+    expectedDomain?: string;
+    expectedEndpoint?: string;
+    isInLineApp?: boolean;
+    liffSdkLoaded?: boolean;
+    liffInitialized?: boolean;
+    liffLoggedIn?: boolean;
+    liffError?: string | null;
+    userProfile?: {
+        userId: string;
+        displayName: string;
+        pictureUrl?: string;
+    };
+    profileError?: string;
+}
+
 export default function LiffDebugPage() {
-    const [debugInfo, setDebugInfo] = useState<any>({});
+    const [debugInfo, setDebugInfo] = useState<DebugInfo>({});
     const [liffStatus, setLiffStatus] = useState('檢查中...');
 
     useEffect(() => {
-        if (typeof window === 'undefined') return;
+        if (typeof window === 'undefined' || typeof document === 'undefined' || typeof navigator === 'undefined') {
+            setLiffStatus('服務器端環境');
+            return;
+        }
 
         const checkLiffStatus = async () => {
-            const info: any = {
+            const info: DebugInfo = {
                 timestamp: new Date().toISOString(),
                 userAgent: navigator.userAgent,
                 currentUrl: window.location.href,
@@ -36,7 +63,7 @@ export default function LiffDebugPage() {
                 if (!window.liff) {
                     const script = document.createElement('script');
                     script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
-                    
+
                     await new Promise((resolve, reject) => {
                         script.onload = resolve;
                         script.onerror = reject;
@@ -83,11 +110,20 @@ export default function LiffDebugPage() {
     }, []);
 
     const testLiffUrl = () => {
+        if (typeof navigator === 'undefined') {
+            alert('無法在服務器端執行此操作');
+            return;
+        }
+
         const liffUrl = `https://liff.line.me/${debugInfo.liffId}`;
         if (navigator.share) {
             navigator.share({
                 title: 'LIFF 測試連結',
                 url: liffUrl
+            }).catch(() => {
+                // 如果分享失敗，回退到複製
+                navigator.clipboard?.writeText(liffUrl);
+                alert('LIFF 連結已複製到剪貼板');
             });
         } else {
             navigator.clipboard?.writeText(liffUrl);
