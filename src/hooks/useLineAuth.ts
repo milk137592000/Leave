@@ -125,7 +125,9 @@ export function useLineAuth(): UseLineAuthReturn {
     const login = () => {
         try {
             console.log('嘗試登入 LINE...');
-            liffLogin();
+            const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+            console.log('當前頁面 URL:', currentUrl);
+            liffLogin(currentUrl);
         } catch (err) {
             console.error('登入失敗:', err);
             setError('登入失敗，請稍後再試');

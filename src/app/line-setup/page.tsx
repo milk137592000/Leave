@@ -351,7 +351,13 @@ export default function LineSetupPage() {
                     </div>
 
                     <button
-                        onClick={() => window.liff && window.liff.login()}
+                        onClick={() => {
+                            if (window.liff && window.liff.login) {
+                                const currentUrl = window.location.href;
+                                console.log('LINE 登入，重定向到:', currentUrl);
+                                window.liff.login({ redirectUri: currentUrl });
+                            }
+                        }}
                         className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 transition-colors font-medium"
                     >
                         🔐 使用 LINE 登入

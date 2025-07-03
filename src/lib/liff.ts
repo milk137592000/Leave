@@ -140,11 +140,21 @@ export async function getProfile() {
 /**
  * 登入
  */
-export function login(): void {
+export function login(redirectUri?: string): void {
     if (!isLiffReady()) {
         throw new Error('LIFF 未準備好');
     }
-    window.liff.login();
+
+    // 如果沒有指定重定向 URI，使用當前頁面 URL
+    const currentUrl = redirectUri || (typeof window !== 'undefined' ? window.location.href : '');
+
+    console.log('LIFF 登入，重定向到:', currentUrl);
+
+    if (currentUrl) {
+        window.liff.login({ redirectUri: currentUrl });
+    } else {
+        window.liff.login();
+    }
 }
 
 /**
