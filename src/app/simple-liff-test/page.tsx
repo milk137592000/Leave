@@ -120,28 +120,15 @@ export default function SimpleLiffTestPage() {
 
             addLog('開始登入流程...');
             
-            // 測試不同的重定向 URL
-            const testUrls = [
-                `${window.location.origin}/simple-liff-test`,
-                `${window.location.origin}/`,
-                `${window.location.origin}/line-redirect`
-            ];
+            // 使用已配置的重定向 URL
+            const redirectUrl = `${window.location.origin}/line-redirect`;
+            addLog(`使用已配置的重定向 URL: ${redirectUrl}`);
 
-            for (let i = 0; i < testUrls.length; i++) {
-                const url = testUrls[i];
-                addLog(`\n--- 測試重定向 URL ${i + 1}: ${url} ---`);
-                
-                try {
-                    addLog(`嘗試使用重定向 URL: ${url}`);
-                    // 注意：這會實際觸發重定向，所以只測試第一個
-                    if (i === 0) {
-                        (window as any).liff.login({ redirectUri: url });
-                        addLog('✅ 登入函數調用成功，等待重定向...');
-                        break;
-                    }
-                } catch (loginError) {
-                    addLog(`❌ 登入失敗: ${loginError}`);
-                }
+            try {
+                (window as any).liff.login({ redirectUri: redirectUrl });
+                addLog('✅ 登入函數調用成功，等待重定向...');
+            } catch (loginError) {
+                addLog(`❌ 登入失敗: ${loginError}`);
             }
 
         } catch (error) {

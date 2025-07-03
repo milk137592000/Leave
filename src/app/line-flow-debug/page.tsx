@@ -155,6 +155,7 @@ export default function LineFlowDebugPage() {
                 await testFullFlow();
             } else {
                 addLog('開始登入流程...');
+                addLog('注意：將重定向到 /line-redirect 頁面');
                 try {
                     login(); // 使用 hook 提供的登入函數
                     addLog('✅ 登入函數調用成功，等待重定向...');
