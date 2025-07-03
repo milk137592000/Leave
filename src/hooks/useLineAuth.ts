@@ -49,10 +49,15 @@ export function useLineAuth(): UseLineAuthReturn {
         try {
             const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 
-            console.log('開始初始化 LIFF，LIFF ID:', liffId);
+            console.log('開始初始化 LIFF');
+            console.log('LIFF ID:', liffId);
+            console.log('所有環境變數:', {
+                NEXT_PUBLIC_LIFF_ID: process.env.NEXT_PUBLIC_LIFF_ID,
+                NODE_ENV: process.env.NODE_ENV
+            });
 
-            if (!liffId) {
-                const errorMsg = 'LIFF ID 未設定，請檢查環境變數 NEXT_PUBLIC_LIFF_ID';
+            if (!liffId || liffId.trim() === '') {
+                const errorMsg = `LIFF ID 未設定或為空值。請檢查 Vercel 環境變數 NEXT_PUBLIC_LIFF_ID。當前值: "${liffId}"`;
                 console.error(errorMsg);
                 setError(errorMsg);
                 setIsLoading(false);

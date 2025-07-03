@@ -23,21 +23,32 @@ export default function LineDebugPage() {
 
     const initializeDebug = async () => {
         addLog('開始調試...');
-        
+
         // 檢查環境變數
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
         addLog(`LIFF ID: ${liffId || '未設定'}`);
-        
+        addLog(`LIFF ID 長度: ${liffId ? liffId.length : 0}`);
+        addLog(`LIFF ID 類型: ${typeof liffId}`);
+
+        // 檢查所有相關環境變數
+        const envVars = {
+            NEXT_PUBLIC_LIFF_ID: process.env.NEXT_PUBLIC_LIFF_ID,
+            NODE_ENV: process.env.NODE_ENV
+        };
+        addLog(`環境變數: ${JSON.stringify(envVars, null, 2)}`);
+
         setDebugInfo(prev => ({
             ...prev,
             liffId,
+            envVars,
             currentUrl: window.location.href,
             userAgent: navigator.userAgent,
             isInLineApp: navigator.userAgent.includes('Line')
         }));
 
-        if (!liffId) {
-            addLog('❌ LIFF ID 未設定');
+        if (!liffId || liffId.trim() === '') {
+            addLog('❌ LIFF ID 未設定或為空值');
+            addLog('請檢查 Vercel Dashboard 中的環境變數設定');
             return;
         }
 
