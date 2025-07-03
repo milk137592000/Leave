@@ -120,13 +120,12 @@ export default function SimpleLiffTestPage() {
 
             addLog('開始登入流程...');
             
-            // 使用 LIFF Endpoint URL 作為重定向 URL
-            const redirectUrl = `${window.location.origin}/line-setup`;
-            addLog(`使用 LIFF Endpoint URL 作為重定向 URL: ${redirectUrl}`);
+            // 嘗試不指定 redirectUri，使用 LIFF 默認行為
+            addLog('嘗試使用 LIFF 默認重定向行為（不指定 redirectUri）');
 
             try {
-                (window as any).liff.login({ redirectUri: redirectUrl });
-                addLog('✅ 登入函數調用成功，等待重定向...');
+                (window as any).liff.login();
+                addLog('✅ 登入函數調用成功（無 redirectUri），等待重定向...');
             } catch (loginError) {
                 addLog(`❌ 登入失敗: ${loginError}`);
             }
