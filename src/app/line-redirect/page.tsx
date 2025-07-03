@@ -23,7 +23,8 @@ export default function LineRedirectPage() {
         });
 
         // 檢查是否有重定向目標
-        const redirectTo = searchParams.get('redirect') || localStorage.getItem('lineRedirectTarget');
+        const redirectTo = searchParams.get('redirect') ||
+            (typeof window !== 'undefined' ? localStorage.getItem('lineRedirectTarget') : null);
         
         if (!isLoggedIn) {
             // 未登入，跳轉到登入頁面
@@ -42,7 +43,9 @@ export default function LineRedirectPage() {
         // 已登入且已設定身份
         if (redirectTo) {
             console.log('跳轉到目標頁面:', redirectTo);
-            localStorage.removeItem('lineRedirectTarget');
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('lineRedirectTarget');
+            }
             router.push(redirectTo);
         } else {
             // 沒有指定目標，跳轉到今天的請假頁面

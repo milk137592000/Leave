@@ -352,7 +352,7 @@ export default function LineSetupPage() {
 
                     <button
                         onClick={() => {
-                            if (window.liff && window.liff.login) {
+                            if (window.liff && window.liff.login && typeof window !== 'undefined') {
                                 // 保存當前頁面到 localStorage
                                 localStorage.setItem('lineRedirectTarget', window.location.href);
 

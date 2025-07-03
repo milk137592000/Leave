@@ -135,9 +135,14 @@ export function useLineAuth(): UseLineAuthReturn {
             }
 
             // 使用重定向頁面作為登入後的目標
-            const redirectUrl = `${window.location.origin}/line-redirect`;
-            console.log('登入重定向 URL:', redirectUrl);
-            liffLogin(redirectUrl);
+            if (typeof window !== 'undefined') {
+                const redirectUrl = `${window.location.origin}/line-redirect`;
+                console.log('登入重定向 URL:', redirectUrl);
+                liffLogin(redirectUrl);
+            } else {
+                // 服務端渲染時的備用方案
+                liffLogin('https://leave-ten.vercel.app/line-redirect');
+            }
         } catch (err) {
             console.error('登入失敗:', err);
             setError('登入失敗，請稍後再試');
