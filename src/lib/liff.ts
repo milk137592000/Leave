@@ -77,11 +77,8 @@ export async function initializeLiff(): Promise<void> {
     // 載入 LIFF SDK
     await loadLiffSdk();
 
-    // 檢查是否已經初始化
-    if (window.liff && typeof window.liff.isInClient === 'function') {
-        console.log('LIFF 已經初始化，跳過重複初始化');
-        return;
-    }
+    // 不檢查是否已初始化，強制重新初始化
+    console.log('強制重新初始化 LIFF');
 
     console.log(`準備初始化 LIFF，ID: "${liffId}"`);
     console.log('LIFF 初始化參數:', { liffId: liffId });

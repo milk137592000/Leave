@@ -69,19 +69,37 @@ export default function LineDebugPage() {
                 try {
                     addLog('LIFF SDK 載入成功，檢查初始化狀態...');
 
-                    // 檢查是否已經初始化
-                    if (window.liff.isInClient !== undefined) {
-                        addLog('LIFF 已經初始化，跳過重複初始化');
-                    } else {
-                        addLog(`開始初始化 LIFF，使用 ID: ${liffId}`);
-                        addLog(`LIFF ID 類型: ${typeof liffId}, 長度: ${liffId?.length}`);
+                    // 強制重新初始化，不檢查是否已初始化
+                    addLog(`強制初始化 LIFF，使用 ID: ${liffId}`);
+                    addLog(`LIFF ID 類型: ${typeof liffId}, 長度: ${liffId?.length}`);
+                    addLog(`LIFF ID 格式檢查: ${/^\d{10}-[a-zA-Z0-9]{8}$/.test(liffId || '')}`);
 
-                        if (!liffId) {
-                            throw new Error('LIFF ID 為空或未定義');
+                    if (!liffId) {
+                        throw new Error('LIFF ID 為空或未定義');
+                    }
+
+                    // 嘗試多個 LIFF ID
+                    const liffIds = [
+                        liffId,
+                        '2007680034-QnRpBayW',
+                        '1234567890-abcdefgh'
+                    ];
+
+                    let success = false;
+                    for (const testId of liffIds) {
+                        try {
+                            addLog(`嘗試 LIFF ID: ${testId}`);
+                            await window.liff.init({ liffId: testId });
+                            addLog(`✅ LIFF 初始化成功，使用 ID: ${testId}`);
+                            success = true;
+                            break;
+                        } catch (error) {
+                            addLog(`❌ LIFF ID ${testId} 失敗: ${error}`);
                         }
+                    }
 
-                        await window.liff.init({ liffId: liffId });
-                        addLog('✅ LIFF 初始化成功');
+                    if (!success) {
+                        throw new Error('所有 LIFF ID 都初始化失敗');
                     }
 
                     const isLoggedIn = window.liff.isLoggedIn();
