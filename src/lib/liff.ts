@@ -12,16 +12,20 @@ const FALLBACK_LIFF_ID = '2007680034-QnRpBayW';
  * 獲取 LIFF ID
  */
 export function getLiffId(): string {
-    // 優先使用環境變數，如果沒有則使用硬編碼值
-    const envLiffId = process.env.NEXT_PUBLIC_LIFF_ID;
-    const liffId = envLiffId || FALLBACK_LIFF_ID;
-    
+    // 直接使用硬編碼值，確保總是有效
+    const liffId = FALLBACK_LIFF_ID;
+
     console.log('獲取 LIFF ID:', {
-        envLiffId,
+        envLiffId: process.env.NEXT_PUBLIC_LIFF_ID,
         fallbackId: FALLBACK_LIFF_ID,
-        finalId: liffId
+        finalId: liffId,
+        isValid: !!liffId && liffId.trim() !== ''
     });
-    
+
+    if (!liffId || liffId.trim() === '') {
+        throw new Error('LIFF ID 無效');
+    }
+
     return liffId;
 }
 
