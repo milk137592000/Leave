@@ -91,51 +91,62 @@ export function useLineAuth(): UseLineAuthReturn {
             }
 
             // 檢查 LIFF 是否已經初始化
-            if (window.liff && window.liff.isInClient !== undefined) {
-                console.log('LIFF 已經初始化，檢查登入狀態...');
-                setIsLiffReady(true);
+            if (window.liff && typeof window.liff.init === 'function') {
+                try {
+                    // 檢查是否已經初始化過
+                    if (window.liff.isInClient !== undefined) {
+                        console.log('LIFF 已經初始化，跳過重複初始化');
+                        setIsLiffReady(true);
+                    } else {
+                        console.log('LIFF SDK 已載入但未初始化，開始初始化...');
+                        await window.liff.init({ liffId });
+                        console.log('LIFF 初始化成功');
+                        setIsLiffReady(true);
+                    }
 
-                const loggedIn = window.liff.isLoggedIn();
-                console.log('當前登入狀態:', loggedIn);
-                setIsLoggedIn(loggedIn);
+                    // 等待一小段時間確保初始化完成
+                    await new Promise(resolve => setTimeout(resolve, 200));
 
-                if (loggedIn) {
-                    try {
-                        const profile = await window.liff.getProfile();
-                        console.log('獲取用戶資料成功:', profile);
-                        setLiffProfile(profile);
-                        await checkUserProfile(profile.userId);
-                    } catch (profileErr) {
-                        console.error('獲取用戶資料失敗:', profileErr);
-                        // 即使獲取資料失敗，也保持登入狀態
+                    // 檢查登入狀態
+                    const loggedIn = window.liff.isLoggedIn();
+                    console.log('登入狀態:', loggedIn);
+                    setIsLoggedIn(loggedIn);
+
+                    if (loggedIn) {
+                        try {
+                            const profile = await window.liff.getProfile();
+                            console.log('獲取用戶資料成功:', profile);
+                            setLiffProfile(profile);
+                            await checkUserProfile(profile.userId);
+                        } catch (profileErr) {
+                            console.error('獲取用戶資料失敗:', profileErr);
+                            // 即使獲取資料失敗，也保持登入狀態
+                        }
+                    }
+                } catch (initError) {
+                    console.error('LIFF 初始化過程中發生錯誤:', initError);
+                    // 如果初始化失敗，但 LIFF 可能已經可用，嘗試直接使用
+                    if (window.liff.isLoggedIn) {
+                        console.log('嘗試直接使用已存在的 LIFF 實例');
+                        setIsLiffReady(true);
+                        const loggedIn = window.liff.isLoggedIn();
+                        setIsLoggedIn(loggedIn);
+
+                        if (loggedIn) {
+                            try {
+                                const profile = await window.liff.getProfile();
+                                setLiffProfile(profile);
+                                await checkUserProfile(profile.userId);
+                            } catch (profileErr) {
+                                console.error('獲取用戶資料失敗:', profileErr);
+                            }
+                        }
+                    } else {
+                        throw initError;
                     }
                 }
             } else {
-                // 初始化 LIFF
-                console.log('初始化 LIFF...');
-                await window.liff.init({ liffId });
-                console.log('LIFF 初始化成功');
-                setIsLiffReady(true);
-
-                // 等待一小段時間確保初始化完成
-                await new Promise(resolve => setTimeout(resolve, 100));
-
-                // 檢查登入狀態
-                const loggedIn = window.liff.isLoggedIn();
-                console.log('初始化後登入狀態:', loggedIn);
-                setIsLoggedIn(loggedIn);
-
-                if (loggedIn) {
-                    try {
-                        const profile = await window.liff.getProfile();
-                        console.log('獲取用戶資料成功:', profile);
-                        setLiffProfile(profile);
-                        await checkUserProfile(profile.userId);
-                    } catch (profileErr) {
-                        console.error('獲取用戶資料失敗:', profileErr);
-                        // 即使獲取資料失敗，也保持登入狀態
-                    }
-                }
+                throw new Error('LIFF SDK 未正確載入');
             }
 
         } catch (err) {

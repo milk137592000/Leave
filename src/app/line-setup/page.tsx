@@ -62,9 +62,17 @@ export default function LineSetupPage() {
             script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
             script.onload = async () => {
                 try {
-                    console.log('開始初始化 LIFF...'); // 調試用
-                    await window.liff.init({ liffId });
-                    console.log('LIFF 初始化成功'); // 調試用
+                    console.log('LIFF SDK 載入成功，檢查初始化狀態...'); // 調試用
+
+                    // 檢查是否已經初始化
+                    if (window.liff.isInClient !== undefined) {
+                        console.log('LIFF 已經初始化，跳過重複初始化'); // 調試用
+                    } else {
+                        console.log('開始初始化 LIFF...'); // 調試用
+                        await window.liff.init({ liffId });
+                        console.log('LIFF 初始化成功'); // 調試用
+                    }
+
                     setIsLiffReady(true);
 
                     if (window.liff.isLoggedIn()) {

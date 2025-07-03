@@ -67,13 +67,20 @@ export default function LineDebugPage() {
             
             script.onload = async () => {
                 try {
-                    addLog('LIFF SDK 載入成功，開始初始化...');
-                    await window.liff.init({ liffId });
-                    addLog('✅ LIFF 初始化成功');
-                    
+                    addLog('LIFF SDK 載入成功，檢查初始化狀態...');
+
+                    // 檢查是否已經初始化
+                    if (window.liff.isInClient !== undefined) {
+                        addLog('LIFF 已經初始化，跳過重複初始化');
+                    } else {
+                        addLog('開始初始化 LIFF...');
+                        await window.liff.init({ liffId });
+                        addLog('✅ LIFF 初始化成功');
+                    }
+
                     const isLoggedIn = window.liff.isLoggedIn();
                     addLog(`登入狀態: ${isLoggedIn ? '已登入' : '未登入'}`);
-                    
+
                     setDebugInfo(prev => ({
                         ...prev,
                         liffInitialized: true,
