@@ -203,7 +203,11 @@ export default function LineSetupPage() {
                                 <p>當前網址: {typeof window !== 'undefined' ? window.location.href : 'N/A'}</p>
                             </div>
                             <button
-                                onClick={() => window.location.reload()}
+                                onClick={() => {
+                                    if (typeof window !== 'undefined') {
+                                        window.location.reload();
+                                    }
+                                }}
                                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                             >
                                 重新載入
@@ -274,7 +278,11 @@ export default function LineSetupPage() {
                                 <p>當前網址: {typeof window !== 'undefined' ? window.location.href : 'N/A'}</p>
                             </div>
                             <button
-                                onClick={() => window.location.reload()}
+                                onClick={() => {
+                                    if (typeof window !== 'undefined') {
+                                        window.location.reload();
+                                    }
+                                }}
                                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                             >
                                 重新載入
@@ -323,7 +331,11 @@ export default function LineSetupPage() {
 
                         <div className="space-y-2">
                             <button
-                                onClick={() => window.liff.closeWindow()}
+                                onClick={() => {
+                                    if (safeWindow?.liff?.closeWindow) {
+                                        safeWindow.liff.closeWindow();
+                                    }
+                                }}
                                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
                             >
                                 關閉視窗
@@ -363,7 +375,7 @@ export default function LineSetupPage() {
                             try {
                                 console.log('點擊登入按鈕');
 
-                                if (!window.liff) {
+                                if (!safeWindow?.liff) {
                                     console.error('LIFF 未初始化');
                                     setError('LIFF 未初始化，請重新載入頁面');
                                     return;
@@ -372,11 +384,13 @@ export default function LineSetupPage() {
                                 console.log('開始 LINE 登入...');
 
                                 // 簡化登入邏輯，直接登入不使用重定向
-                                await window.liff.login();
+                                await safeWindow.liff.login();
 
                                 console.log('登入成功，重新載入頁面');
                                 // 登入成功後重新載入頁面
-                                window.location.reload();
+                                if (typeof window !== 'undefined') {
+                                    window.location.reload();
+                                }
 
                             } catch (error) {
                                 console.error('登入失敗:', error);
@@ -390,12 +404,14 @@ export default function LineSetupPage() {
 
                     <div className="mt-4 text-xs text-gray-400 space-y-1">
                         <p>點擊後將跳轉到 LINE 登入頁面</p>
-                        <div className="bg-gray-50 p-2 rounded text-left">
-                            <p>調試資訊：</p>
-                            <p>LIFF 狀態: {window.liff ? '已載入' : '未載入'}</p>
-                            <p>登入狀態: {window.liff?.isLoggedIn?.() ? '已登入' : '未登入'}</p>
-                            <p>在 LINE 中: {window.liff?.isInClient?.() ? '是' : '否'}</p>
-                        </div>
+                        {isClient && (
+                            <div className="bg-gray-50 p-2 rounded text-left">
+                                <p>調試資訊：</p>
+                                <p>LIFF 狀態: {safeWindow?.liff ? '已載入' : '未載入'}</p>
+                                <p>登入狀態: {safeWindow?.liff?.isLoggedIn?.() ? '已登入' : '未登入'}</p>
+                                <p>在 LINE 中: {safeWindow?.liff?.isInClient?.() ? '是' : '否'}</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
