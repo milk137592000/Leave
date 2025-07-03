@@ -353,9 +353,13 @@ export default function LineSetupPage() {
                     <button
                         onClick={() => {
                             if (window.liff && window.liff.login) {
-                                const currentUrl = window.location.href;
-                                console.log('LINE 登入，重定向到:', currentUrl);
-                                window.liff.login({ redirectUri: currentUrl });
+                                // 保存當前頁面到 localStorage
+                                localStorage.setItem('lineRedirectTarget', window.location.href);
+
+                                // 使用重定向頁面作為登入後的目標
+                                const redirectUrl = `${window.location.origin}/line-redirect`;
+                                console.log('LINE 登入，重定向到:', redirectUrl);
+                                window.liff.login({ redirectUri: redirectUrl });
                             }
                         }}
                         className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 transition-colors font-medium"

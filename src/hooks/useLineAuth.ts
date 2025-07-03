@@ -127,7 +127,17 @@ export function useLineAuth(): UseLineAuthReturn {
             console.log('嘗試登入 LINE...');
             const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
             console.log('當前頁面 URL:', currentUrl);
-            liffLogin(currentUrl);
+
+            // 保存當前頁面到 localStorage，登入後重定向使用
+            if (typeof window !== 'undefined' && currentUrl) {
+                localStorage.setItem('lineRedirectTarget', currentUrl);
+                console.log('保存重定向目標:', currentUrl);
+            }
+
+            // 使用重定向頁面作為登入後的目標
+            const redirectUrl = `${window.location.origin}/line-redirect`;
+            console.log('登入重定向 URL:', redirectUrl);
+            liffLogin(redirectUrl);
         } catch (err) {
             console.error('登入失敗:', err);
             setError('登入失敗，請稍後再試');
