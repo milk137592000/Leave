@@ -157,6 +157,7 @@ export default function DebugUseLineAuthPage() {
                     <h3 className="font-medium text-blue-800 mb-2">💡 說明</h3>
                     <p className="text-blue-700 text-sm">
                         這個頁面使用和請假頁面完全相同的 useLineAuth hook，可以幫助調試 LIFF 初始化問題。
+                        如果這個頁面工作正常但請假頁面不行，可能是緩存問題。
                     </p>
                 </div>
             </div>
