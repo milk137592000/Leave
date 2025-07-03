@@ -1,11 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useLineAuth } from '@/hooks/useLineAuth';
 
 export default function LineFlowDebugPage() {
     const [logs, setLogs] = useState<string[]>([]);
     const [isClient, setIsClient] = useState(false);
     const [liffProfile, setLiffProfile] = useState<any>(null);
+
+    // 使用 useLineAuth hook 來確保 LIFF SDK 被載入
+    const {
+        isLiffReady,
+        isLoggedIn,
+        liffProfile: hookLiffProfile,
+        userProfile,
+        isLoading: authLoading,
+        error: authError,
+        login
+    } = useLineAuth();
 
     const addLog = (message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -22,41 +34,62 @@ export default function LineFlowDebugPage() {
         try {
             addLog('=== 開始完整 LINE 流程測試 ===');
             setLogs([]);
-            
+
             // 步驟 1: 檢查 LIFF 初始化
-            addLog('步驟 1: 檢查 LIFF 初始化');
-            if (!(window as any).liff) {
-                addLog('❌ LIFF 未載入');
+            addLog('步驟 1: 檢查 useLineAuth hook 狀態');
+            addLog(`isLiffReady: ${isLiffReady}`);
+            addLog(`isLoggedIn: ${isLoggedIn}`);
+            addLog(`authLoading: ${authLoading}`);
+            addLog(`authError: ${authError || 'None'}`);
+
+            if (!isLiffReady) {
+                addLog('❌ LIFF 尚未準備就緒，請等待初始化完成');
                 return;
             }
-            addLog('✅ LIFF 已載入');
+            addLog('✅ LIFF 已準備就緒');
 
-            // 步驟 2: 檢查登入狀態
-            addLog('步驟 2: 檢查登入狀態');
-            const isLoggedIn = (window as any).liff.isLoggedIn();
-            addLog(`登入狀態: ${isLoggedIn}`);
+            // 步驟 2: 檢查 LIFF SDK
+            addLog('步驟 2: 檢查 LIFF SDK');
+            if (!(window as any).liff) {
+                addLog('❌ LIFF SDK 未載入');
+                return;
+            }
+            addLog('✅ LIFF SDK 已載入');
 
+            // 步驟 3: 檢查登入狀態
+            addLog('步驟 3: 檢查登入狀態');
             if (!isLoggedIn) {
                 addLog('❌ 用戶未登入，無法繼續測試');
+                addLog('可以點擊 "測試登入流程" 按鈕進行登入');
                 return;
             }
+            addLog('✅ 用戶已登入');
 
-            // 步驟 3: 獲取 LIFF Profile
-            addLog('步驟 3: 獲取 LIFF Profile');
-            try {
-                const profile = await (window as any).liff.getProfile();
-                addLog(`✅ LIFF Profile 獲取成功:`);
-                addLog(`  - User ID: ${profile.userId}`);
-                addLog(`  - Display Name: ${profile.displayName}`);
-                addLog(`  - Picture URL: ${profile.pictureUrl || 'N/A'}`);
-                setLiffProfile(profile);
+            // 步驟 4: 檢查 LIFF Profile
+            addLog('步驟 4: 檢查 LIFF Profile');
+            if (hookLiffProfile) {
+                addLog(`✅ LIFF Profile 已獲取:`);
+                addLog(`  - User ID: ${hookLiffProfile.userId}`);
+                addLog(`  - Display Name: ${hookLiffProfile.displayName}`);
+                addLog(`  - Picture URL: ${hookLiffProfile.pictureUrl || 'N/A'}`);
+                setLiffProfile(hookLiffProfile);
 
-                // 步驟 4: 測試 API 調用
-                addLog('步驟 4: 測試用戶資料 API');
-                await testUserProfileApi(profile.userId);
+                // 步驟 5: 測試 API 調用
+                addLog('步驟 5: 測試用戶資料 API');
+                await testUserProfileApi(hookLiffProfile.userId);
+            } else {
+                addLog('❌ LIFF Profile 未獲取');
+            }
 
-            } catch (profileError) {
-                addLog(`❌ 獲取 LIFF Profile 失敗: ${profileError}`);
+            // 步驟 6: 檢查用戶資料
+            addLog('步驟 6: 檢查用戶資料');
+            if (userProfile) {
+                addLog(`✅ 用戶資料已獲取:`);
+                addLog(`  - Member Name: ${userProfile.memberName}`);
+                addLog(`  - Team: ${userProfile.team}`);
+                addLog(`  - Role: ${userProfile.role}`);
+            } else {
+                addLog('❌ 用戶資料未獲取（可能尚未設定身份）');
             }
 
         } catch (error) {
@@ -103,27 +136,33 @@ export default function LineFlowDebugPage() {
 
     const testDirectLogin = async () => {
         try {
-            addLog('=== 測試直接登入 ===');
+            addLog('=== 測試登入流程 ===');
             setLogs([]);
-            
-            if (!(window as any).liff) {
-                addLog('❌ LIFF 未載入');
+
+            addLog(`當前狀態檢查:`);
+            addLog(`  - isLiffReady: ${isLiffReady}`);
+            addLog(`  - isLoggedIn: ${isLoggedIn}`);
+            addLog(`  - authLoading: ${authLoading}`);
+            addLog(`  - authError: ${authError || 'None'}`);
+
+            if (!isLiffReady) {
+                addLog('❌ LIFF 尚未準備就緒，無法登入');
                 return;
             }
-            
-            const isLoggedIn = (window as any).liff.isLoggedIn();
-            addLog(`當前登入狀態: ${isLoggedIn}`);
-            
+
             if (isLoggedIn) {
-                addLog('✅ 用戶已登入，獲取資料...');
+                addLog('✅ 用戶已登入，執行完整流程測試...');
                 await testFullFlow();
             } else {
                 addLog('開始登入流程...');
-                const redirectUrl = `${window.location.origin}/line-flow-debug`;
-                addLog(`重定向 URL: ${redirectUrl}`);
-                (window as any).liff.login({ redirectUri: redirectUrl });
+                try {
+                    login(); // 使用 hook 提供的登入函數
+                    addLog('✅ 登入函數調用成功，等待重定向...');
+                } catch (loginError) {
+                    addLog(`❌ 登入函數調用失敗: ${loginError}`);
+                }
             }
-            
+
         } catch (error) {
             addLog(`❌ 登入測試錯誤: ${error}`);
         }
@@ -177,7 +216,44 @@ export default function LineFlowDebugPage() {
                     <h1 className="text-2xl font-bold text-gray-900 mb-4">
                         🔍 LINE 完整流程調試
                     </h1>
-                    
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div className="bg-gray-50 p-3 rounded">
+                            <div className="text-sm text-gray-600">isLiffReady</div>
+                            <div className={`font-bold ${isLiffReady ? 'text-green-600' : 'text-red-600'}`}>
+                                {isLiffReady ? '✅ True' : '❌ False'}
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-3 rounded">
+                            <div className="text-sm text-gray-600">isLoggedIn</div>
+                            <div className={`font-bold ${isLoggedIn ? 'text-green-600' : 'text-red-600'}`}>
+                                {isLoggedIn ? '✅ True' : '❌ False'}
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-3 rounded">
+                            <div className="text-sm text-gray-600">authLoading</div>
+                            <div className={`font-bold ${authLoading ? 'text-yellow-600' : 'text-gray-600'}`}>
+                                {authLoading ? '⏳ True' : '✅ False'}
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-3 rounded">
+                            <div className="text-sm text-gray-600">authError</div>
+                            <div className={`font-bold ${authError ? 'text-red-600' : 'text-green-600'}`}>
+                                {authError ? '❌ Error' : '✅ None'}
+                            </div>
+                        </div>
+                    </div>
+
+                    {authError && (
+                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded">
+                            <h3 className="font-medium text-red-800 mb-2">❌ 錯誤詳情</h3>
+                            <p className="text-red-700 text-sm font-mono">{authError}</p>
+                        </div>
+                    )}
+
                     <div className="space-y-4 mb-6">
                         <button
                             onClick={testFullFlow}
