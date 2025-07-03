@@ -73,8 +73,14 @@ export default function LineDebugPage() {
                     if (window.liff.isInClient !== undefined) {
                         addLog('LIFF 已經初始化，跳過重複初始化');
                     } else {
-                        addLog('開始初始化 LIFF...');
-                        await window.liff.init({ liffId });
+                        addLog(`開始初始化 LIFF，使用 ID: ${liffId}`);
+                        addLog(`LIFF ID 類型: ${typeof liffId}, 長度: ${liffId?.length}`);
+
+                        if (!liffId) {
+                            throw new Error('LIFF ID 為空或未定義');
+                        }
+
+                        await window.liff.init({ liffId: liffId });
                         addLog('✅ LIFF 初始化成功');
                     }
 

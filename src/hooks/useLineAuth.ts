@@ -1,4 +1,12 @@
 import { useState, useEffect } from 'react';
+import {
+    initializeLiff as initLiff,
+    isLiffReady as checkIsLiffReady,
+    isLoggedIn as checkIsLoggedIn,
+    getProfile,
+    login as liffLogin,
+    logout as liffLogout
+} from '@/lib/liff';
 
 interface LiffProfile {
     userId: string;
@@ -47,106 +55,29 @@ export function useLineAuth(): UseLineAuthReturn {
     // 初始化 LIFF
     const initializeLiff = async () => {
         try {
-            // 臨時解決方案：如果環境變數未設定，使用硬編碼的 LIFF ID
-            let liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+            console.log('開始初始化 LIFF...');
 
-            console.log('開始初始化 LIFF');
-            console.log('環境變數 LIFF ID:', liffId);
-            console.log('所有環境變數:', {
-                NEXT_PUBLIC_LIFF_ID: process.env.NEXT_PUBLIC_LIFF_ID,
-                NODE_ENV: process.env.NODE_ENV
-            });
+            // 使用新的 LIFF 工具函數
+            await initLiff();
 
-            // 如果環境變數未設定，使用硬編碼值
-            if (!liffId || liffId.trim() === '') {
-                liffId = '2007680034-QnRpBayW';
-                console.log('使用硬編碼 LIFF ID:', liffId);
-            }
+            console.log('LIFF 初始化成功，檢查狀態...');
+            setIsLiffReady(true);
 
-            if (!liffId || liffId.trim() === '') {
-                const errorMsg = `LIFF ID 仍然無效。當前值: "${liffId}"`;
-                console.error(errorMsg);
-                setError(errorMsg);
-                setIsLoading(false);
-                return;
-            }
+            // 檢查登入狀態
+            const loggedIn = checkIsLoggedIn();
+            console.log('登入狀態:', loggedIn);
+            setIsLoggedIn(loggedIn);
 
-            // 動態載入 LIFF SDK
-            if (!window.liff) {
-                console.log('載入 LIFF SDK...');
-                const script = document.createElement('script');
-                script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
-
-                await new Promise((resolve, reject) => {
-                    script.onload = () => {
-                        console.log('LIFF SDK 載入成功');
-                        resolve(undefined);
-                    };
-                    script.onerror = (err) => {
-                        console.error('LIFF SDK 載入失敗:', err);
-                        reject(err);
-                    };
-                    document.head.appendChild(script);
-                });
-            }
-
-            // 檢查 LIFF 是否已經初始化
-            if (window.liff && typeof window.liff.init === 'function') {
+            if (loggedIn) {
                 try {
-                    // 檢查是否已經初始化過
-                    if (window.liff.isInClient !== undefined) {
-                        console.log('LIFF 已經初始化，跳過重複初始化');
-                        setIsLiffReady(true);
-                    } else {
-                        console.log('LIFF SDK 已載入但未初始化，開始初始化...');
-                        await window.liff.init({ liffId });
-                        console.log('LIFF 初始化成功');
-                        setIsLiffReady(true);
-                    }
-
-                    // 等待一小段時間確保初始化完成
-                    await new Promise(resolve => setTimeout(resolve, 200));
-
-                    // 檢查登入狀態
-                    const loggedIn = window.liff.isLoggedIn();
-                    console.log('登入狀態:', loggedIn);
-                    setIsLoggedIn(loggedIn);
-
-                    if (loggedIn) {
-                        try {
-                            const profile = await window.liff.getProfile();
-                            console.log('獲取用戶資料成功:', profile);
-                            setLiffProfile(profile);
-                            await checkUserProfile(profile.userId);
-                        } catch (profileErr) {
-                            console.error('獲取用戶資料失敗:', profileErr);
-                            // 即使獲取資料失敗，也保持登入狀態
-                        }
-                    }
-                } catch (initError) {
-                    console.error('LIFF 初始化過程中發生錯誤:', initError);
-                    // 如果初始化失敗，但 LIFF 可能已經可用，嘗試直接使用
-                    if (window.liff.isLoggedIn) {
-                        console.log('嘗試直接使用已存在的 LIFF 實例');
-                        setIsLiffReady(true);
-                        const loggedIn = window.liff.isLoggedIn();
-                        setIsLoggedIn(loggedIn);
-
-                        if (loggedIn) {
-                            try {
-                                const profile = await window.liff.getProfile();
-                                setLiffProfile(profile);
-                                await checkUserProfile(profile.userId);
-                            } catch (profileErr) {
-                                console.error('獲取用戶資料失敗:', profileErr);
-                            }
-                        }
-                    } else {
-                        throw initError;
-                    }
+                    const profile = await getProfile();
+                    console.log('獲取用戶資料成功:', profile);
+                    setLiffProfile(profile);
+                    await checkUserProfile(profile.userId);
+                } catch (profileErr) {
+                    console.error('獲取用戶資料失敗:', profileErr);
+                    // 即使獲取資料失敗，也保持登入狀態
                 }
-            } else {
-                throw new Error('LIFF SDK 未正確載入');
             }
 
         } catch (err) {
@@ -194,12 +125,7 @@ export function useLineAuth(): UseLineAuthReturn {
     const login = () => {
         try {
             console.log('嘗試登入 LINE...');
-            if (window.liff && window.liff.login) {
-                window.liff.login();
-            } else {
-                console.error('LIFF 未初始化或登入功能不可用');
-                setError('LIFF 未初始化，請重新載入頁面');
-            }
+            liffLogin();
         } catch (err) {
             console.error('登入失敗:', err);
             setError('登入失敗，請稍後再試');
@@ -210,15 +136,11 @@ export function useLineAuth(): UseLineAuthReturn {
     const logout = () => {
         try {
             console.log('登出 LINE...');
-            if (window.liff && window.liff.logout) {
-                window.liff.logout();
-                setIsLoggedIn(false);
-                setLiffProfile(null);
-                setUserProfile(null);
-                console.log('登出成功');
-            } else {
-                console.error('LIFF 未初始化或登出功能不可用');
-            }
+            liffLogout();
+            setIsLoggedIn(false);
+            setLiffProfile(null);
+            setUserProfile(null);
+            console.log('登出成功');
         } catch (err) {
             console.error('登出失敗:', err);
             // 即使登出失敗，也清除本地狀態
