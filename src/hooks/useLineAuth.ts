@@ -71,18 +71,40 @@ export function useLineAuth(): UseLineAuthReturn {
                 script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
 
                 await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('LIFF SDK 載入超時'));
+                    }, 10000); // 10秒超時
+
                     script.onload = () => {
+                        clearTimeout(timeout);
                         console.log('✅ LIFF SDK 載入成功');
-                        resolve(true);
+                        // 等待一小段時間確保 LIFF 物件完全初始化
+                        setTimeout(() => {
+                            if ((window as any).liff) {
+                                resolve(true);
+                            } else {
+                                reject(new Error('LIFF 物件未正確初始化'));
+                            }
+                        }, 100);
                     };
                     script.onerror = (err) => {
+                        clearTimeout(timeout);
                         console.log('❌ LIFF SDK 載入失敗');
-                        reject(err);
+                        reject(new Error('LIFF SDK 載入失敗'));
                     };
                     document.head.appendChild(script);
                 });
             } else {
                 console.log('LIFF SDK 已存在');
+            }
+
+            // 驗證 LIFF 物件是否正確載入
+            if (!(window as any).liff) {
+                throw new Error('LIFF 物件不存在');
+            }
+
+            if (typeof (window as any).liff.init !== 'function') {
+                throw new Error('LIFF.init 函數不存在');
             }
 
             // 嘗試初始化 - 使用和直接測試相同的邏輯
@@ -136,11 +158,19 @@ export function useLineAuth(): UseLineAuthReturn {
     // 檢查用戶資料
     const checkUserProfile = async (lineUserId: string, retryCount = 0) => {
         try {
+            // 驗證 lineUserId 參數
+            if (!lineUserId || typeof lineUserId !== 'string' || lineUserId.trim() === '') {
+                console.error('無效的 LINE User ID:', lineUserId);
+                setUserProfile(null);
+                return;
+            }
+
             console.log(`檢查用戶資料，LINE User ID: ${lineUserId}`);
-            const response = await fetch(`/api/user-profile?lineUserId=${lineUserId}`);
+            const response = await fetch(`/api/user-profile?lineUserId=${encodeURIComponent(lineUserId)}`);
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
             }
 
             const data = await response.json();
@@ -162,6 +192,9 @@ export function useLineAuth(): UseLineAuthReturn {
                 setTimeout(() => {
                     checkUserProfile(lineUserId, retryCount + 1);
                 }, 1000 * (retryCount + 1)); // 遞增延遲
+            } else {
+                // 重試失敗後，設置為 null
+                setUserProfile(null);
             }
         }
     };
