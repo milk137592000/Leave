@@ -46,6 +46,12 @@ export default function LineSetupPage() {
     }, []);
 
     const initializeLiff = async () => {
+        // 確保只在客戶端執行
+        if (typeof window === 'undefined' || typeof document === 'undefined') {
+            console.log('服務器端環境，跳過 LIFF 初始化');
+            return;
+        }
+
         try {
             let liffId = process.env.NEXT_PUBLIC_LIFF_ID;
             console.log('環境變數 LIFF ID:', liffId); // 調試用
@@ -61,36 +67,61 @@ export default function LineSetupPage() {
                 return;
             }
 
+            // 檢查是否已經載入 LIFF SDK
+            if (window.liff) {
+                console.log('LIFF SDK 已存在，直接初始化');
+                try {
+                    if (window.liff.isInClient === undefined) {
+                        await window.liff.init({ liffId });
+                        console.log('LIFF 初始化成功');
+                    }
+                    setIsLiffReady(true);
+
+                    if (window.liff.isLoggedIn()) {
+                        console.log('用戶已登入');
+                        const profile = await window.liff.getProfile();
+                        console.log('用戶資料:', profile);
+                        setLiffProfile(profile);
+                        await checkExistingProfile(profile.userId);
+                    } else {
+                        console.log('用戶未登入，需要先登入');
+                    }
+                } catch (error) {
+                    console.error('LIFF 初始化失敗:', error);
+                    setError(`LIFF 初始化失敗: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                return;
+            }
+
             // 動態載入 LIFF SDK
+            console.log('開始載入 LIFF SDK...');
             const script = document.createElement('script');
             script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
             script.onload = async () => {
                 try {
-                    console.log('LIFF SDK 載入成功，檢查初始化狀態...'); // 調試用
+                    console.log('LIFF SDK 載入成功，檢查初始化狀態...');
 
                     // 檢查是否已經初始化
                     if (window.liff.isInClient !== undefined) {
-                        console.log('LIFF 已經初始化，跳過重複初始化'); // 調試用
+                        console.log('LIFF 已經初始化，跳過重複初始化');
                     } else {
-                        console.log('開始初始化 LIFF...'); // 調試用
+                        console.log('開始初始化 LIFF...');
                         await window.liff.init({ liffId });
-                        console.log('LIFF 初始化成功'); // 調試用
+                        console.log('LIFF 初始化成功');
                     }
 
                     setIsLiffReady(true);
 
                     if (window.liff.isLoggedIn()) {
-                        console.log('用戶已登入'); // 調試用
+                        console.log('用戶已登入');
                         const profile = await window.liff.getProfile();
-                        console.log('用戶資料:', profile); // 調試用
+                        console.log('用戶資料:', profile);
                         setLiffProfile(profile);
 
                         // 檢查是否已有設定
                         await checkExistingProfile(profile.userId);
-                        // 無論是否已設定，都讓用戶看到界面（已設定會顯示成功頁面，未設定會顯示選擇界面）
                     } else {
-                        console.log('用戶未登入，需要先登入'); // 調試用
-                        // 不自動登入，讓用戶手動點擊登入按鈕
+                        console.log('用戶未登入，需要先登入');
                     }
                 } catch (error) {
                     console.error('LIFF 初始化失敗:', error);
