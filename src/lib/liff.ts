@@ -139,10 +139,6 @@ export async function initializeLiff(): Promise<void> {
         console.error(`❌ LIFF 初始化失敗:`, error);
         throw error;
     }
-
-    // 如果所有 LIFF ID 都失敗
-    console.error('所有 LIFF ID 都初始化失敗');
-    throw lastError || new Error('LIFF 初始化失敗');
 }
 
 /**
