@@ -97,18 +97,18 @@ export default function LiffDiagnosisPage() {
             };
             addResult('環境變數檢查', true, '環境變數狀態', envVars);
 
-            // 測試 5: 網路連接測試
+            // 測試 5: 網路連接測試（通過 API 端點）
             setCurrentTest('網路連接測試');
             try {
-                const response = await fetch('https://api.line.me/v2/bot/info', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN || 'test'}`
-                    }
+                // 使用我們的 API 端點來測試 LINE 連接，因為客戶端無法直接訪問 LINE_CHANNEL_ACCESS_TOKEN
+                const response = await fetch('/api/test-line-message', {
+                    method: 'GET'
                 });
-                addResult('LINE API 連接', response.ok, `HTTP ${response.status}`, {
+                const data = await response.json();
+                addResult('LINE API 連接', response.ok, response.ok ? 'LINE Bot 設定正常' : `連接失敗: ${data.error}`, {
                     status: response.status,
-                    statusText: response.statusText
+                    statusText: response.statusText,
+                    data: data
                 });
             } catch (error) {
                 addResult('LINE API 連接', false, `連接失敗: ${error}`);
