@@ -25,8 +25,16 @@ export default function LineDebugPage() {
         addLog('開始調試...');
 
         // 檢查環境變數
-        const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
-        addLog(`LIFF ID: ${liffId || '未設定'}`);
+        let liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+        addLog(`環境變數 LIFF ID: ${liffId || '未設定'}`);
+
+        // 如果環境變數未設定，使用硬編碼值
+        if (!liffId || liffId.trim() === '') {
+            liffId = '2007680034-QnRpBayW';
+            addLog(`使用硬編碼 LIFF ID: ${liffId}`);
+        }
+
+        addLog(`最終 LIFF ID: ${liffId}`);
         addLog(`LIFF ID 長度: ${liffId ? liffId.length : 0}`);
         addLog(`LIFF ID 類型: ${typeof liffId}`);
 
@@ -47,8 +55,7 @@ export default function LineDebugPage() {
         }));
 
         if (!liffId || liffId.trim() === '') {
-            addLog('❌ LIFF ID 未設定或為空值');
-            addLog('請檢查 Vercel Dashboard 中的環境變數設定');
+            addLog('❌ LIFF ID 仍然無效');
             return;
         }
 

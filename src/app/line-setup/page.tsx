@@ -43,11 +43,17 @@ export default function LineSetupPage() {
 
     const initializeLiff = async () => {
         try {
-            const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
-            console.log('LIFF ID:', liffId); // 調試用
+            let liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+            console.log('環境變數 LIFF ID:', liffId); // 調試用
 
-            if (!liffId) {
-                setError('LIFF ID 未設定，請檢查環境變數 NEXT_PUBLIC_LIFF_ID');
+            // 如果環境變數未設定，使用硬編碼值
+            if (!liffId || liffId.trim() === '') {
+                liffId = '2007680034-QnRpBayW';
+                console.log('使用硬編碼 LIFF ID:', liffId);
+            }
+
+            if (!liffId || liffId.trim() === '') {
+                setError('LIFF ID 仍然無效');
                 return;
             }
 

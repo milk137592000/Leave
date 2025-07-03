@@ -47,17 +47,24 @@ export function useLineAuth(): UseLineAuthReturn {
     // 初始化 LIFF
     const initializeLiff = async () => {
         try {
-            const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+            // 臨時解決方案：如果環境變數未設定，使用硬編碼的 LIFF ID
+            let liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 
             console.log('開始初始化 LIFF');
-            console.log('LIFF ID:', liffId);
+            console.log('環境變數 LIFF ID:', liffId);
             console.log('所有環境變數:', {
                 NEXT_PUBLIC_LIFF_ID: process.env.NEXT_PUBLIC_LIFF_ID,
                 NODE_ENV: process.env.NODE_ENV
             });
 
+            // 如果環境變數未設定，使用硬編碼值
             if (!liffId || liffId.trim() === '') {
-                const errorMsg = `LIFF ID 未設定或為空值。請檢查 Vercel 環境變數 NEXT_PUBLIC_LIFF_ID。當前值: "${liffId}"`;
+                liffId = '2007680034-QnRpBayW';
+                console.log('使用硬編碼 LIFF ID:', liffId);
+            }
+
+            if (!liffId || liffId.trim() === '') {
+                const errorMsg = `LIFF ID 仍然無效。當前值: "${liffId}"`;
                 console.error(errorMsg);
                 setError(errorMsg);
                 setIsLoading(false);
