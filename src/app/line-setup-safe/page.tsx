@@ -37,10 +37,18 @@ export default function LineSetupSafePage() {
 
                 const liffId = process.env.NEXT_PUBLIC_LIFF_ID || '2007680034-QnRpBayW';
                 console.log('使用 LIFF ID:', liffId);
+                console.log('環境變數 NEXT_PUBLIC_LIFF_ID:', process.env.NEXT_PUBLIC_LIFF_ID);
+
+                // 驗證 LIFF ID
+                if (!liffId || liffId.trim() === '') {
+                    throw new Error('LIFF ID 無效或未設定');
+                }
 
                 // 初始化 LIFF
                 if ((window as any).liff.isInClient === undefined) {
-                    await (window as any).liff.init({ liffId });
+                    console.log('開始初始化 LIFF，ID:', liffId);
+                    await (window as any).liff.init({ liffId: liffId });
+                    console.log('LIFF 初始化完成');
                 }
 
                 setIsLiffReady(true);
@@ -73,7 +81,15 @@ export default function LineSetupSafePage() {
         try {
             setLoading(true);
             console.log('開始登入...');
-            await (window as any).liff.login();
+
+            // 確保 LIFF ID 正確傳遞
+            const liffId = process.env.NEXT_PUBLIC_LIFF_ID || '2007680034-QnRpBayW';
+            console.log('登入使用的 LIFF ID:', liffId);
+
+            // 使用明確的參數進行登入
+            await (window as any).liff.login({
+                redirectUri: window.location.href
+            });
         } catch (err) {
             console.error('登入失敗:', err);
             setError(`登入失敗: ${err instanceof Error ? err.message : String(err)}`);
