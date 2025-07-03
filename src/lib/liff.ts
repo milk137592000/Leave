@@ -30,9 +30,41 @@ export function getLiffId(): string {
 }
 
 /**
+ * 檢查是否在客戶端環境
+ */
+export function isClient(): boolean {
+    return typeof window !== 'undefined';
+}
+
+/**
+ * 安全地獲取 window 物件
+ */
+export function safeWindow(): Window | null {
+    return isClient() ? window : null;
+}
+
+/**
+ * 安全地獲取 localStorage
+ */
+export function safeLocalStorage(): Storage | null {
+    return isClient() ? localStorage : null;
+}
+
+/**
+ * 安全地獲取 navigator
+ */
+export function safeNavigator(): Navigator | null {
+    return isClient() ? navigator : null;
+}
+
+/**
  * 載入 LIFF SDK
  */
 export async function loadLiffSdk(): Promise<void> {
+    if (!isClient()) {
+        throw new Error('LIFF SDK 只能在客戶端載入');
+    }
+
     if (window.liff) {
         console.log('LIFF SDK 已經載入');
         return;
@@ -58,7 +90,12 @@ export async function loadLiffSdk(): Promise<void> {
  * 初始化 LIFF
  */
 export async function initializeLiff(): Promise<void> {
+    if (!isClient()) {
+        throw new Error('LIFF 只能在客戶端初始化');
+    }
+
     const liffId = getLiffId();
+    const win = safeWindow();
 
     console.log('詳細 LIFF 初始化診斷:', {
         liffId,
@@ -66,8 +103,8 @@ export async function initializeLiff(): Promise<void> {
         liffIdLength: liffId?.length,
         liffIdTrimmed: liffId?.trim(),
         isValidFormat: /^\d{10}-[a-zA-Z0-9]{8}$/.test(liffId || ''),
-        windowLiffExists: !!window.liff,
-        windowLiffType: typeof window.liff
+        windowLiffExists: !!(win && win.liff),
+        windowLiffType: win ? typeof win.liff : 'undefined'
     });
 
     if (!liffId) {
@@ -96,9 +133,13 @@ export async function initializeLiff(): Promise<void> {
     for (const testLiffId of liffIds) {
         try {
             console.log(`嘗試使用 LIFF ID: "${testLiffId}"`);
-            await window.liff.init({ liffId: testLiffId });
-            console.log(`✅ LIFF 初始化成功，使用 ID: ${testLiffId}`);
-            return;
+            if (win && win.liff) {
+                await win.liff.init({ liffId: testLiffId });
+                console.log(`✅ LIFF 初始化成功，使用 ID: ${testLiffId}`);
+                return;
+            } else {
+                throw new Error('LIFF SDK 未載入');
+            }
         } catch (error) {
             console.error(`❌ LIFF ID "${testLiffId}" 初始化失敗:`, error);
             lastError = error;
@@ -114,7 +155,8 @@ export async function initializeLiff(): Promise<void> {
  * 檢查 LIFF 是否已準備好
  */
 export function isLiffReady(): boolean {
-    return !!(window.liff && typeof window.liff.isLoggedIn === 'function');
+    const win = safeWindow();
+    return !!(win && win.liff && typeof win.liff.isLoggedIn === 'function');
 }
 
 /**
@@ -124,7 +166,8 @@ export function isLoggedIn(): boolean {
     if (!isLiffReady()) {
         return false;
     }
-    return window.liff.isLoggedIn();
+    const win = safeWindow();
+    return !!(win && win.liff && win.liff.isLoggedIn());
 }
 
 /**
@@ -134,7 +177,11 @@ export async function getProfile() {
     if (!isLiffReady() || !isLoggedIn()) {
         throw new Error('LIFF 未準備好或用戶未登入');
     }
-    return await window.liff.getProfile();
+    const win = safeWindow();
+    if (!win || !win.liff) {
+        throw new Error('LIFF 未準備好');
+    }
+    return await win.liff.getProfile();
 }
 
 /**
@@ -145,15 +192,20 @@ export function login(redirectUri?: string): void {
         throw new Error('LIFF 未準備好');
     }
 
+    const win = safeWindow();
+    if (!win || !win.liff) {
+        throw new Error('LIFF 未準備好');
+    }
+
     // 如果沒有指定重定向 URI，使用當前頁面 URL
-    const currentUrl = redirectUri || (typeof window !== 'undefined' ? window.location.href : '');
+    const currentUrl = redirectUri || (isClient() ? win.location.href : '');
 
     console.log('LIFF 登入，重定向到:', currentUrl);
 
     if (currentUrl) {
-        window.liff.login({ redirectUri: currentUrl });
+        win.liff.login({ redirectUri: currentUrl });
     } else {
-        window.liff.login();
+        win.liff.login();
     }
 }
 
@@ -164,5 +216,9 @@ export function logout(): void {
     if (!isLiffReady()) {
         throw new Error('LIFF 未準備好');
     }
-    window.liff.logout();
+    const win = safeWindow();
+    if (!win || !win.liff) {
+        throw new Error('LIFF 未準備好');
+    }
+    win.liff.logout();
 }

@@ -5,7 +5,10 @@ import {
     isLoggedIn as checkIsLoggedIn,
     getProfile,
     login as liffLogin,
-    logout as liffLogout
+    logout as liffLogout,
+    isClient,
+    safeWindow,
+    safeLocalStorage
 } from '@/lib/liff';
 
 interface LiffProfile {
@@ -125,18 +128,20 @@ export function useLineAuth(): UseLineAuthReturn {
     const login = () => {
         try {
             console.log('嘗試登入 LINE...');
-            const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+            const win = safeWindow();
+            const localStorage = safeLocalStorage();
+            const currentUrl = win ? win.location.href : '';
             console.log('當前頁面 URL:', currentUrl);
 
             // 保存當前頁面到 localStorage，登入後重定向使用
-            if (typeof window !== 'undefined' && currentUrl) {
+            if (localStorage && currentUrl) {
                 localStorage.setItem('lineRedirectTarget', currentUrl);
                 console.log('保存重定向目標:', currentUrl);
             }
 
             // 使用重定向頁面作為登入後的目標
-            if (typeof window !== 'undefined') {
-                const redirectUrl = `${window.location.origin}/line-redirect`;
+            if (win) {
+                const redirectUrl = `${win.location.origin}/line-redirect`;
                 console.log('登入重定向 URL:', redirectUrl);
                 liffLogin(redirectUrl);
             } else {

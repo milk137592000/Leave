@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getTeamsForDate } from '@/data/teams';
+import { useBrowserSafe, useLocalStorage, useSafeNavigation } from '@/hooks/useBrowserSafe';
 
 declare global {
     interface Window {
@@ -34,6 +35,9 @@ export default function LineSetupPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+
+    const { isClient, window: safeWindow, localStorage: safeLocalStorage } = useBrowserSafe();
+    const { getCurrentUrl, getOrigin } = useSafeNavigation();
 
     const teams = getTeamsForDate(new Date());
 
@@ -240,7 +244,11 @@ export default function LineSetupPage() {
                         </p>
                         
                         <button
-                            onClick={() => window.liff.closeWindow()}
+                            onClick={() => {
+                                if (safeWindow && safeWindow.liff && safeWindow.liff.closeWindow) {
+                                    safeWindow.liff.closeWindow();
+                                }
+                            }}
                             className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
                         >
                             關閉視窗
@@ -352,14 +360,16 @@ export default function LineSetupPage() {
 
                     <button
                         onClick={() => {
-                            if (window.liff && window.liff.login && typeof window !== 'undefined') {
+                            if (safeWindow && safeWindow.liff && safeWindow.liff.login) {
                                 // 保存當前頁面到 localStorage
-                                localStorage.setItem('lineRedirectTarget', window.location.href);
+                                if (safeLocalStorage) {
+                                    safeLocalStorage.setItem('lineRedirectTarget', getCurrentUrl());
+                                }
 
                                 // 使用重定向頁面作為登入後的目標
-                                const redirectUrl = `${window.location.origin}/line-redirect`;
+                                const redirectUrl = `${getOrigin()}/line-redirect`;
                                 console.log('LINE 登入，重定向到:', redirectUrl);
-                                window.liff.login({ redirectUri: redirectUrl });
+                                safeWindow.liff.login({ redirectUri: redirectUrl });
                             }
                         }}
                         className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 transition-colors font-medium"

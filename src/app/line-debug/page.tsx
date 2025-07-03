@@ -49,9 +49,9 @@ export default function LineDebugPage() {
             ...prev,
             liffId,
             envVars,
-            currentUrl: window.location.href,
-            userAgent: navigator.userAgent,
-            isInLineApp: navigator.userAgent.includes('Line')
+            currentUrl: typeof window !== 'undefined' ? window.location.href : 'N/A',
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+            isInLineApp: typeof navigator !== 'undefined' ? navigator.userAgent.includes('Line') : false
         }));
 
         if (!liffId || liffId.trim() === '') {
@@ -89,10 +89,14 @@ export default function LineDebugPage() {
                     for (const testId of liffIds) {
                         try {
                             addLog(`嘗試 LIFF ID: ${testId}`);
-                            await window.liff.init({ liffId: testId });
-                            addLog(`✅ LIFF 初始化成功，使用 ID: ${testId}`);
-                            success = true;
-                            break;
+                            if (typeof window !== 'undefined' && window.liff) {
+                                await window.liff.init({ liffId: testId });
+                                addLog(`✅ LIFF 初始化成功，使用 ID: ${testId}`);
+                                success = true;
+                                break;
+                            } else {
+                                throw new Error('LIFF SDK 未載入');
+                            }
                         } catch (error) {
                             addLog(`❌ LIFF ID ${testId} 失敗: ${error}`);
                         }

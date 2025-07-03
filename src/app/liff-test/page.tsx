@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useClipboard, useSafeNavigation } from '@/hooks/useBrowserSafe';
 
 export default function LiffTestPage() {
     const [liffId, setLiffId] = useState('');
     const [error, setError] = useState('');
+    const { copyToClipboard } = useClipboard();
+    const { navigateTo } = useSafeNavigation();
 
     useEffect(() => {
         // 檢查環境變數
@@ -55,10 +58,13 @@ export default function LiffTestPage() {
 
                         <div className="space-y-2">
                             <button
-                                onClick={() => {
+                                onClick={async () => {
                                     if (liffId) {
-                                        navigator.clipboard.writeText(`https://liff.line.me/${liffId}`);
-                                        alert('LIFF URL 已複製到剪貼簿');
+                                        const liffUrl = `https://liff.line.me/${liffId}`;
+                                        const success = await copyToClipboard(liffUrl);
+                                        if (success) {
+                                            alert('LIFF URL 已複製到剪貼簿');
+                                        }
                                     }
                                 }}
                                 disabled={!liffId}
@@ -69,7 +75,7 @@ export default function LiffTestPage() {
 
                             <button
                                 onClick={() => {
-                                    window.location.href = '/line-setup';
+                                    navigateTo('/line-setup');
                                 }}
                                 className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
                             >

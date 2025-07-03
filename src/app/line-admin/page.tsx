@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useClipboard } from '@/hooks/useBrowserSafe';
 
 interface UserProfile {
     lineUserId: string;
@@ -25,6 +26,7 @@ export default function LineAdminPage() {
     const [teamStats, setTeamStats] = useState<TeamStats>({});
     const [loading, setLoading] = useState(true);
     const [testResult, setTestResult] = useState<string>('');
+    const { copyToClipboard } = useClipboard();
 
     useEffect(() => {
         fetchUsers();
@@ -209,9 +211,12 @@ export default function LineAdminPage() {
                                 className="flex-1 p-2 border border-gray-300 rounded text-sm"
                             />
                             <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(`https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID || 'YOUR_LIFF_ID'}`);
-                                    alert('連結已複製到剪貼簿');
+                                onClick={async () => {
+                                    const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID || 'YOUR_LIFF_ID'}`;
+                                    const success = await copyToClipboard(liffUrl);
+                                    if (success) {
+                                        alert('連結已複製到剪貼簿');
+                                    }
                                 }}
                                 className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
                             >

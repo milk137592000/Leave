@@ -15,6 +15,26 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['mongoose'],
   },
+  // 改善 SSR 支援
+  compiler: {
+    // 移除 console.log 在生產環境中
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn']
+    } : false,
+  },
+  // 優化打包
+  webpack: (config, { isServer }) => {
+    // 確保客戶端專用的程式碼不會在伺服器端執行
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
