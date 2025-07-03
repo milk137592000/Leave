@@ -55,15 +55,52 @@ export function useLineAuth(): UseLineAuthReturn {
     // 測試模式 - 檢查是否有測試用戶資料
     const isTestMode = typeof window !== 'undefined' && window.location.search.includes('test=true');
 
-    // 初始化 LIFF
+    // 初始化 LIFF - 使用和診斷頁面相同的邏輯
     const initializeLiff = async () => {
         try {
+            console.log('=== useLineAuth LIFF 初始化開始 ===');
+
+            // 直接使用診斷頁面的成功邏輯
+            const liffId = '2007680034-QnRpBayW';
+            console.log(`使用硬編碼 LIFF ID: ${liffId}`);
+
+            // 載入 LIFF SDK
+            if (!(window as any).liff) {
+                console.log('載入 LIFF SDK...');
+                const script = document.createElement('script');
+                script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+
+                await new Promise((resolve, reject) => {
+                    script.onload = () => {
+                        console.log('✅ LIFF SDK 載入成功');
+                        resolve(true);
+                    };
+                    script.onerror = (err) => {
+                        console.log('❌ LIFF SDK 載入失敗');
+                        reject(err);
+                    };
+                    document.head.appendChild(script);
+                });
+            } else {
+                console.log('LIFF SDK 已存在');
+            }
+
+            // 重置 LIFF（如果已初始化）
+            if ((window as any).liff && (window as any).liff._config) {
+                console.log('重置 LIFF 狀態...');
+                delete (window as any).liff._config;
+            }
+
+            // 嘗試初始化
             console.log('開始初始化 LIFF...');
+            if ((window as any).liff.isInClient === undefined) {
+                console.log('LIFF 尚未初始化，開始初始化...');
+                await (window as any).liff.init({ liffId: liffId });
+                console.log('✅ LIFF 初始化成功');
+            } else {
+                console.log('LIFF 已經初始化過');
+            }
 
-            // 使用新的 LIFF 工具函數
-            await initLiff();
-
-            console.log('LIFF 初始化成功，檢查狀態...');
             setIsLiffReady(true);
 
             // 檢查登入狀態
