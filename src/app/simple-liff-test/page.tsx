@@ -120,8 +120,8 @@ export default function SimpleLiffTestPage() {
 
             addLog('開始登入流程...');
             
-            // 使用已配置的重定向 URL
-            const redirectUrl = `${window.location.origin}/line-redirect`;
+            // 使用已配置的重定向 URL（帶尾隨斜線）
+            const redirectUrl = `${window.location.origin}/line-redirect/`;
             addLog(`使用已配置的重定向 URL: ${redirectUrl}`);
 
             try {

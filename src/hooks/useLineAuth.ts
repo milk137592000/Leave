@@ -214,14 +214,14 @@ export function useLineAuth(): UseLineAuthReturn {
                 console.log('保存重定向目標:', currentUrl);
             }
 
-            // 使用重定向頁面作為登入後的目標
+            // 使用重定向頁面作為登入後的目標（帶尾隨斜線）
             if (win) {
-                const redirectUrl = `${win.location.origin}/line-redirect`;
+                const redirectUrl = `${win.location.origin}/line-redirect/`;
                 console.log('登入重定向 URL:', redirectUrl);
                 (window as any).liff.login({ redirectUri: redirectUrl });
             } else {
                 // 服務端渲染時的備用方案
-                (window as any).liff.login({ redirectUri: 'https://leave-ten.vercel.app/line-redirect' });
+                (window as any).liff.login({ redirectUri: 'https://leave-ten.vercel.app/line-redirect/' });
             }
         } catch (err) {
             console.error('登入失敗:', err);
