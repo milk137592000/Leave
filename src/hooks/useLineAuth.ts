@@ -85,21 +85,25 @@ export function useLineAuth(): UseLineAuthReturn {
                 console.log('LIFF SDK 已存在');
             }
 
-            // 重置 LIFF（如果已初始化）
-            if ((window as any).liff && (window as any).liff._config) {
-                console.log('重置 LIFF 狀態...');
-                delete (window as any).liff._config;
-            }
-
-            // 嘗試初始化
+            // 嘗試初始化 - 使用和直接測試相同的邏輯
             console.log('開始初始化 LIFF...');
-            if ((window as any).liff.isInClient === undefined) {
-                console.log('LIFF 尚未初始化，開始初始化...');
-                console.log('使用 LIFF ID:', liffId);
-                await (window as any).liff.init({ liffId: liffId });
+            console.log('使用 LIFF ID:', liffId);
+
+            try {
+                // 直接初始化，不檢查是否已初始化（因為重複初始化通常是安全的）
+                const config = { liffId: liffId };
+                console.log('初始化配置:', JSON.stringify(config));
+                await (window as any).liff.init(config);
                 console.log('✅ LIFF 初始化成功');
-            } else {
-                console.log('LIFF 已經初始化過');
+            } catch (initError) {
+                // 如果初始化失敗，可能是已經初始化過了
+                console.log('初始化失敗，可能已經初始化過:', initError);
+                // 檢查是否真的已經初始化
+                if (typeof (window as any).liff.isInClient === 'function') {
+                    console.log('LIFF 已經初始化，繼續使用');
+                } else {
+                    throw initError; // 如果真的失敗了，拋出錯誤
+                }
             }
 
             setIsLiffReady(true);
