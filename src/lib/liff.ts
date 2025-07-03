@@ -59,7 +59,17 @@ export async function loadLiffSdk(): Promise<void> {
  */
 export async function initializeLiff(): Promise<void> {
     const liffId = getLiffId();
-    
+
+    console.log('詳細 LIFF 初始化診斷:', {
+        liffId,
+        liffIdType: typeof liffId,
+        liffIdLength: liffId?.length,
+        liffIdTrimmed: liffId?.trim(),
+        isValidFormat: /^\d{10}-[a-zA-Z0-9]{8}$/.test(liffId || ''),
+        windowLiffExists: !!window.liff,
+        windowLiffType: typeof window.liff
+    });
+
     if (!liffId) {
         throw new Error('LIFF ID 未設定');
     }
@@ -73,15 +83,34 @@ export async function initializeLiff(): Promise<void> {
         return;
     }
 
-    console.log(`初始化 LIFF，ID: ${liffId}`);
-    
-    try {
-        await window.liff.init({ liffId });
-        console.log('LIFF 初始化成功');
-    } catch (error) {
-        console.error('LIFF 初始化失敗:', error);
-        throw error;
+    console.log(`準備初始化 LIFF，ID: "${liffId}"`);
+    console.log('LIFF 初始化參數:', { liffId: liffId });
+
+    // 嘗試多種 LIFF ID 格式
+    const liffIds = [
+        liffId,
+        liffId.trim(),
+        '2007680034-QnRpBayW', // 硬編碼備用
+        '1234567890-abcdefgh'  // 測試格式
+    ];
+
+    let lastError = null;
+
+    for (const testLiffId of liffIds) {
+        try {
+            console.log(`嘗試使用 LIFF ID: "${testLiffId}"`);
+            await window.liff.init({ liffId: testLiffId });
+            console.log(`✅ LIFF 初始化成功，使用 ID: ${testLiffId}`);
+            return;
+        } catch (error) {
+            console.error(`❌ LIFF ID "${testLiffId}" 初始化失敗:`, error);
+            lastError = error;
+        }
     }
+
+    // 如果所有 LIFF ID 都失敗
+    console.error('所有 LIFF ID 都初始化失敗');
+    throw lastError || new Error('LIFF 初始化失敗');
 }
 
 /**
