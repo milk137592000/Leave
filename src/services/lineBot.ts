@@ -498,6 +498,102 @@ export async function sendOvertimeCancelledNotification(
 }
 
 /**
+ * 批量發送加班機會消失通知，但排除特定人員
+ */
+export async function sendOvertimeCancelledNotificationExcluding(
+    cancelledOpportunity: {
+        date: string;
+        requesterName: string;
+        requesterTeam: string;
+        reason: string;
+    },
+    excludeNames: string[] = []
+): Promise<{ success: number; failed: number; excluded: number }> {
+    try {
+        // 導入必要的模組
+        const { default: connectDB } = await import('@/lib/mongodb');
+        const { UserProfile } = await import('@/models/UserProfile');
+        const { LineUserState } = await import('@/models/LineUserState');
+
+        await connectDB();
+
+        // 查找所有已註冊的 LINE 用戶
+        const [userProfiles, lineUsers] = await Promise.all([
+            UserProfile.find({ notificationEnabled: true }),
+            LineUserState.find({
+                step: 'name_selected',
+                selectedName: { $exists: true }
+            })
+        ]);
+
+        // 合併用戶資料，優先使用 UserProfile
+        const allUsers = new Map();
+
+        // 先添加 UserProfile 的用戶
+        userProfiles.forEach(user => {
+            allUsers.set(user.lineUserId, {
+                lineUserId: user.lineUserId,
+                name: user.name,
+                team: user.team
+            });
+        });
+
+        // 再添加 LineUserState 的用戶（如果不存在於 UserProfile 中）
+        lineUsers.forEach(user => {
+            if (!allUsers.has(user.lineUserId)) {
+                allUsers.set(user.lineUserId, {
+                    lineUserId: user.lineUserId,
+                    name: user.selectedName,
+                    team: user.selectedTeam
+                });
+            }
+        });
+
+        let successCount = 0;
+        let failedCount = 0;
+        let excludedCount = 0;
+
+        for (const user of allUsers.values()) {
+            // 檢查是否需要排除此用戶
+            if (excludeNames.includes(user.name)) {
+                excludedCount++;
+                console.log(`排除通知用戶: ${user.name} (${user.team}班)`);
+                continue;
+            }
+
+            try {
+                const success = await sendOvertimeCancelledNotification(
+                    user.lineUserId,
+                    user.name,
+                    cancelledOpportunity
+                );
+
+                if (success) {
+                    successCount++;
+                } else {
+                    failedCount++;
+                }
+            } catch (error) {
+                console.error(`發送通知給 ${user.name} 失敗:`, error);
+                failedCount++;
+            }
+        }
+
+        console.log(`加班取消通知發送完成 - 成功: ${successCount}, 失敗: ${failedCount}, 排除: ${excludedCount}`);
+
+        return {
+            success: successCount,
+            failed: failedCount,
+            excluded: excludedCount
+        };
+
+    } catch (error) {
+        console.error('批量發送加班取消通知失敗:', error);
+        return { success: 0, failed: 0, excluded: 0 };
+    }
+}
+
+/**
  * 發送個人加班狀態查詢結果
  */
 export async function sendPersonalOvertimeStatus(

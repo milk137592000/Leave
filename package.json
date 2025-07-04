@@ -10,7 +10,9 @@
     "check-schedule": "ts-node --project tsconfig.json src/scripts/checkSchedule.ts",
     "test-db": "node test-mongodb-connection.js",
     "test-line": "node test-line-connection.js",
-    "check-ssr": "node scripts/check-ssr-safety.js"
+    "check-ssr": "node scripts/check-ssr-safety.js",
+    "test-overtime-logic": "node test-overtime-logic.js",
+    "test-overtime-cancellation": "node test-overtime-cancellation.js"
   },
   "dependencies": {
     "@line/bot-sdk": "^10.0.0",

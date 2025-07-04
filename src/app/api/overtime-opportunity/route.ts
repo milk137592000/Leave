@@ -139,7 +139,8 @@ export async function DELETE(request: NextRequest) {
             date,
             requesterName,
             requesterTeam,
-            reason = '請假已取消或加班需求已滿足'
+            reason = '請假已取消或加班需求已滿足',
+            excludeNames = [] // 新增：需要排除的人員名單
         } = body;
         
         if (!date || !requesterName || !requesterTeam) {
@@ -163,37 +164,26 @@ export async function DELETE(request: NextRequest) {
             });
         }
         
-        // 發送取消通知給所有用戶
-        let notifiedCount = 0;
-        const cancelledOpportunity = {
-            date,
-            requesterName,
-            requesterTeam,
-            reason
-        };
-        
-        for (const user of lineUsers) {
-            try {
-                // 發送取消通知（暫時使用一般通知）
-                await sendOvertimeNotification(user.lineUserId, {
-                    requesterName: requesterName,
-                    requesterTeam: requesterTeam,
-                    date: date,
-                    period: '已取消',
-                    suggestedTeam: user.selectedName!,
-                    reason: '加班機會已取消'
-                });
-                
-                notifiedCount++;
-            } catch (error) {
-                console.error(`通知用戶 ${user.selectedName} 失敗:`, error);
-            }
-        }
+        // 使用新的排除功能發送取消通知
+        const { sendOvertimeCancelledNotificationExcluding } = await import('@/services/lineBot');
+
+        const result = await sendOvertimeCancelledNotificationExcluding(
+            {
+                date,
+                requesterName,
+                requesterTeam,
+                reason
+            },
+            excludeNames
+        );
         
         return NextResponse.json({
             success: true,
             message: '加班取消通知發送完成',
-            notified: notifiedCount
+            notified: result.success,
+            failed: result.failed,
+            excluded: result.excluded,
+            excludedNames: excludeNames
         });
         
     } catch (error) {
