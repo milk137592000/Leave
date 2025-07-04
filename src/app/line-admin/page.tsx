@@ -44,6 +44,29 @@ export default function LineAdminPage() {
         }
     };
 
+    const resetUserBinding = async (user: UserProfile) => {
+        if (!confirm(`確定要重置 ${user.memberName} 的 LINE 綁定嗎？\n\n重置後該用戶需要重新進行身份設定才能收到通知。`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/line-admin/users?lineUserId=${encodeURIComponent(user.lineUserId)}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                alert(`${user.memberName} 的 LINE 綁定已重置！\n\n請通知該用戶重新進行身份設定。`);
+                fetchUsers(); // 重新載入用戶列表
+            } else {
+                const errorData = await response.json();
+                alert(`重置失敗: ${errorData.error}`);
+            }
+        } catch (error) {
+            console.error('重置用戶綁定失敗:', error);
+            alert('重置失敗，請稍後再試');
+        }
+    };
+
     const calculateStats = (userList: UserProfile[]) => {
         const stats: TeamStats = {};
         
@@ -134,9 +157,17 @@ export default function LineAdminPage() {
                                         <div>
                                             <p className="font-medium text-sm">{user.memberName}</p>
                                             <p className="text-xs text-gray-500">{user.role}</p>
+                                            <p className="text-xs text-gray-400">註冊: {new Date(user.createdAt).toLocaleDateString()}</p>
                                         </div>
-                                        <div className="flex items-center">
+                                        <div className="flex items-center space-x-2">
                                             <span className={`w-2 h-2 rounded-full ${user.notificationEnabled ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                                            <button
+                                                onClick={() => resetUserBinding(user)}
+                                                className="text-xs bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded"
+                                                title="重置 LINE 綁定"
+                                            >
+                                                重置
+                                            </button>
                                         </div>
                                     </div>
                                 ))}

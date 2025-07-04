@@ -674,6 +674,14 @@ export async function handleUserCommand(lineUserId: string, command: string): Pr
                 await sendNameSelectionMessage(lineUserId);
                 break;
 
+            case '重新設定':
+            case '重置身份':
+            case '重新綁定':
+            case '身份設定':
+            case '設定身份':
+                await handleIdentityReset(lineUserId);
+                break;
+
             default:
                 await sendUnknownCommandMessage(lineUserId);
                 return false;
@@ -683,6 +691,52 @@ export async function handleUserCommand(lineUserId: string, command: string): Pr
     } catch (error) {
         console.error('處理用戶指令失敗:', error);
         return false;
+    }
+}
+
+/**
+ * 處理身份重置
+ */
+async function handleIdentityReset(lineUserId: string): Promise<void> {
+    try {
+        const { default: connectDB } = await import('@/lib/mongodb');
+        const { default: UserProfile } = await import('@/models/UserProfile');
+        const { default: LineUserState } = await import('@/models/LineUserState');
+
+        await connectDB();
+
+        // 查找現有的用戶資料
+        const existingProfile = await UserProfile.findOne({ lineUserId });
+
+        // 刪除現有的用戶資料
+        await UserProfile.findOneAndDelete({ lineUserId });
+        await LineUserState.findOneAndDelete({ lineUserId });
+
+        const liffUrl = `${process.env.NEXTAUTH_URL}/line-setup`;
+
+        let message: TextMessage;
+
+        if (existingProfile) {
+            message = {
+                type: 'text',
+                text: `✅ 已重置您的身份設定！\n\n之前的身份：${existingProfile.team}班 ${existingProfile.role} ${existingProfile.memberName}\n\n請重新點擊以下連結設定身份：\n${liffUrl}\n\n設定完成後即可重新收到加班通知！`
+            };
+        } else {
+            message = {
+                type: 'text',
+                text: `您尚未設定身份，請點擊以下連結進行設定：\n${liffUrl}\n\n設定完成後即可收到加班通知！`
+            };
+        }
+
+        await client.pushMessage(lineUserId, message);
+
+    } catch (error) {
+        console.error('處理身份重置失敗:', error);
+        const errorMessage: TextMessage = {
+            type: 'text',
+            text: '重置失敗，請稍後再試或聯繫管理員。'
+        };
+        await client.pushMessage(lineUserId, errorMessage);
     }
 }
 
