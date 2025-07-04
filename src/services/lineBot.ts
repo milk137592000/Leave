@@ -526,6 +526,9 @@ export async function sendOvertimeCancelledNotificationExcluding(
             })
         ]);
 
+        console.log(`找到 UserProfile 用戶: ${userProfiles.length} 人`);
+        console.log(`找到 LineUserState 用戶: ${lineUsers.length} 人`);
+
         // 合併用戶資料，優先使用 UserProfile
         const allUsers = new Map();
 
@@ -555,6 +558,7 @@ export async function sendOvertimeCancelledNotificationExcluding(
 
         // 將 Map.values() 轉換為數組來避免迭代器問題
         const userList = Array.from(allUsers.values());
+        console.log(`合併後總用戶數: ${userList.length} 人`);
 
         for (const user of userList) {
             // 檢查是否需要排除此用戶
