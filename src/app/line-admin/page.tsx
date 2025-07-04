@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useClipboard } from '@/hooks/useBrowserSafe';
 
 interface UserProfile {
     lineUserId: string;
@@ -25,8 +24,6 @@ export default function LineAdminPage() {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [teamStats, setTeamStats] = useState<TeamStats>({});
     const [loading, setLoading] = useState(true);
-    const [testResult, setTestResult] = useState<string>('');
-    const { copyToClipboard } = useClipboard();
 
     useEffect(() => {
         fetchUsers();
@@ -62,37 +59,6 @@ export default function LineAdminPage() {
         });
 
         setTeamStats(stats);
-    };
-
-    const testNotification = async (team: string) => {
-        setTestResult('發送中...');
-        try {
-            const response = await fetch('/api/overtime-notification', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    requesterName: '測試員工',
-                    requesterTeam: 'A',
-                    date: new Date().toISOString().split('T')[0],
-                    period: '全天',
-                    suggestedTeam: team,
-                    reason: '這是一個測試通知'
-                }),
-            });
-
-            const data = await response.json();
-            if (response.ok) {
-                setTestResult(`✅ 成功發送給 ${data.notified} 位用戶`);
-            } else {
-                setTestResult(`❌ 發送失敗: ${data.error}`);
-            }
-        } catch (error) {
-            setTestResult(`❌ 發送失敗: ${error}`);
-        }
-
-        setTimeout(() => setTestResult(''), 3000);
     };
 
     if (loading) {
@@ -139,27 +105,14 @@ export default function LineAdminPage() {
                             </p>
                         </div>
                     </div>
-
-                    {/* 測試通知 */}
-                    {testResult && (
-                        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                            <p className="text-blue-800">{testResult}</p>
-                        </div>
-                    )}
                 </div>
 
                 {/* 各班級詳情 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {Object.entries(teamStats).map(([team, stats]) => (
                         <div key={team} className="bg-white rounded-lg shadow-md p-6">
-                            <div className="flex justify-between items-center mb-4">
+                            <div className="mb-4">
                                 <h2 className="text-xl font-bold text-gray-900">{team}班</h2>
-                                <button
-                                    onClick={() => testNotification(team)}
-                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                                >
-                                    測試通知
-                                </button>
                             </div>
                             
                             <div className="mb-4">
@@ -196,34 +149,6 @@ export default function LineAdminPage() {
                             )}
                         </div>
                     ))}
-                </div>
-
-                {/* LIFF 連結 */}
-                <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-                    <h2 className="text-xl font-bold text-gray-900 mb-4">LIFF 設定連結</h2>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600 mb-2">分享此連結給員工進行身份設定：</p>
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="text"
-                                value={`https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID || 'YOUR_LIFF_ID'}`}
-                                readOnly
-                                className="flex-1 p-2 border border-gray-300 rounded text-sm"
-                            />
-                            <button
-                                onClick={async () => {
-                                    const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID || 'YOUR_LIFF_ID'}`;
-                                    const success = await copyToClipboard(liffUrl);
-                                    if (success) {
-                                        alert('連結已複製到剪貼簿');
-                                    }
-                                }}
-                                className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                            >
-                                複製
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
