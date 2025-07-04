@@ -81,14 +81,20 @@ export default function LineSetupPage() {
 
                     setIsLiffReady(true);
 
-                    if (window.liff.isLoggedIn()) {
-                        console.log('用戶已登入');
-                        const profile = await window.liff.getProfile();
-                        console.log('用戶資料:', profile);
-                        setLiffProfile(profile);
-                        await checkExistingProfile(profile.userId);
-                    } else {
-                        console.log('用戶未登入，需要先登入');
+                    // 安全檢查登入狀態
+                    try {
+                        if (typeof window.liff.isLoggedIn === 'function' && window.liff.isLoggedIn()) {
+                            console.log('用戶已登入');
+                            const profile = await window.liff.getProfile();
+                            console.log('用戶資料:', profile);
+                            setLiffProfile(profile);
+                            await checkExistingProfile(profile.userId);
+                        } else {
+                            console.log('用戶未登入，需要先登入');
+                        }
+                    } catch (loginCheckError) {
+                        console.error('檢查登入狀態失敗:', loginCheckError);
+                        console.log('假設用戶未登入');
                     }
                 } catch (error) {
                     console.error('LIFF 初始化失敗:', error);
@@ -122,16 +128,21 @@ export default function LineSetupPage() {
 
                     setIsLiffReady(true);
 
-                    if (window.liff.isLoggedIn()) {
-                        console.log('用戶已登入');
-                        const profile = await window.liff.getProfile();
-                        console.log('用戶資料:', profile);
-                        setLiffProfile(profile);
-
-                        // 檢查是否已有設定
-                        await checkExistingProfile(profile.userId);
-                    } else {
-                        console.log('用戶未登入，需要先登入');
+                    // 安全檢查登入狀態
+                    try {
+                        if (typeof window.liff.isLoggedIn === 'function' && window.liff.isLoggedIn()) {
+                            console.log('用戶已登入');
+                            const profile = await window.liff.getProfile();
+                            console.log('用戶資料:', profile);
+                            setLiffProfile(profile);
+                            // 檢查是否已有設定
+                            await checkExistingProfile(profile.userId);
+                        } else {
+                            console.log('用戶未登入，需要先登入');
+                        }
+                    } catch (loginCheckError) {
+                        console.error('檢查登入狀態失敗:', loginCheckError);
+                        console.log('假設用戶未登入');
                     }
                 } catch (error) {
                     console.error('LIFF 初始化失敗:', error);

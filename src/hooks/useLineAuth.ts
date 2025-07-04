@@ -130,10 +130,21 @@ export function useLineAuth(): UseLineAuthReturn {
 
             setIsLiffReady(true);
 
-            // 檢查登入狀態 - 直接使用 window.liff
-            const loggedIn = (window as any).liff.isLoggedIn();
-            console.log('登入狀態:', loggedIn);
-            setIsLoggedIn(loggedIn);
+            // 檢查登入狀態 - 確保 LIFF 已正確初始化
+            try {
+                // 驗證 LIFF 是否真的已經初始化
+                if (typeof (window as any).liff.isLoggedIn !== 'function') {
+                    throw new Error('LIFF isLoggedIn 函數不可用');
+                }
+
+                const loggedIn = (window as any).liff.isLoggedIn();
+                console.log('登入狀態:', loggedIn);
+                setIsLoggedIn(loggedIn);
+            } catch (loginCheckError) {
+                console.error('檢查登入狀態失敗:', loginCheckError);
+                // 如果檢查登入狀態失敗，設為未登入
+                setIsLoggedIn(false);
+            }
 
             if (loggedIn) {
                 try {
