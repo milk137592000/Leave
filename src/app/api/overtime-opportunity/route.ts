@@ -150,21 +150,8 @@ export async function DELETE(request: NextRequest) {
             );
         }
         
-        // 查找所有已選擇名稱的Line用戶
-        const lineUsers = await LineUserState.find({
-            step: 'name_selected',
-            selectedName: { $exists: true }
-        });
-        
-        if (lineUsers.length === 0) {
-            return NextResponse.json({
-                success: true,
-                message: '沒有已註冊的Line用戶',
-                notified: 0
-            });
-        }
-        
-        // 使用新的排除功能發送取消通知
+        // 直接使用新的排除功能發送取消通知
+        // 這個函數會自動查找 UserProfile 和 LineUserState 中的所有用戶
         const { sendOvertimeCancelledNotificationExcluding } = await import('@/services/lineBot');
 
         const result = await sendOvertimeCancelledNotificationExcluding(
