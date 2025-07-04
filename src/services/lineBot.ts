@@ -512,8 +512,8 @@ export async function sendOvertimeCancelledNotificationExcluding(
     try {
         // 導入必要的模組
         const { default: connectDB } = await import('@/lib/mongodb');
-        const { UserProfile } = await import('@/models/UserProfile');
-        const { LineUserState } = await import('@/models/LineUserState');
+        const { default: UserProfile } = await import('@/models/UserProfile');
+        const { default: LineUserState } = await import('@/models/LineUserState');
 
         await connectDB();
 
@@ -553,7 +553,10 @@ export async function sendOvertimeCancelledNotificationExcluding(
         let failedCount = 0;
         let excludedCount = 0;
 
-        for (const user of allUsers.values()) {
+        // 將 Map.values() 轉換為數組來避免迭代器問題
+        const userList = Array.from(allUsers.values());
+
+        for (const user of userList) {
             // 檢查是否需要排除此用戶
             if (excludeNames.includes(user.name)) {
                 excludedCount++;
