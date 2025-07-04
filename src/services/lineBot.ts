@@ -533,7 +533,7 @@ export async function sendOvertimeCancelledNotificationExcluding(
         userProfiles.forEach(user => {
             allUsers.set(user.lineUserId, {
                 lineUserId: user.lineUserId,
-                name: user.name,
+                name: user.memberName, // 修正：使用 memberName 而不是 name
                 team: user.team
             });
         });
