@@ -2,8 +2,23 @@
 
 import React, { useState, useEffect } from 'react';
 
+interface DebugInfo {
+    env?: {
+        NEXT_PUBLIC_LIFF_ID?: string;
+        NODE_ENV?: string;
+    };
+    browser?: {
+        userAgent: string;
+        url: string;
+        isClient: boolean;
+    };
+    timestamp?: string;
+    buildTime?: string;
+    apiTest?: any;
+}
+
 export default function DebugDeployment() {
-    const [debugInfo, setDebugInfo] = useState<any>({});
+    const [debugInfo, setDebugInfo] = useState<DebugInfo>({});
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -35,7 +50,7 @@ export default function DebugDeployment() {
         try {
             const response = await fetch('/api/check-env');
             const data = await response.json();
-            setDebugInfo(prev => ({ ...prev, apiTest: data }));
+            setDebugInfo((prev: DebugInfo) => ({ ...prev, apiTest: data }));
         } catch (err) {
             setError(`API test failed: ${err instanceof Error ? err.message : String(err)}`);
         }
