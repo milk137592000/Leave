@@ -77,7 +77,10 @@ export async function sendOvertimeNotificationToMultiple(
  */
 function createOvertimeMessage(notification: OvertimeNotification): string {
     const { requesterName, requesterTeam, date, period, suggestedTeam, reason } = notification;
-    
+
+    // 構建加班頁面網址
+    const overtimeUrl = `https://leave-ten.vercel.app/leave/${date}`;
+
     return `🔔 加班通知
 
 📅 日期：${date}
@@ -86,6 +89,9 @@ function createOvertimeMessage(notification: OvertimeNotification): string {
 
 💼 建議加班班級：${suggestedTeam}班
 📝 原因：${reason}
+
+🌐 點擊前往加班頁面：
+${overtimeUrl}
 
 如果您可以協助加班，請聯繫相關負責人。
 感謝您的配合！`;
@@ -442,9 +448,12 @@ async function sendOvertimeOpportunityNotification(
 
         opportunities.forEach((opp, index) => {
             const { record, reason } = opp;
+            const overtimeUrl = `https://leave-ten.vercel.app/leave/${record.date}`;
+
             messageText += `${index + 1}. 📅 ${record.date}\n`;
             messageText += `   👤 ${record.team}班 ${record.name} 請假\n`;
-            messageText += `   💼 ${reason}\n\n`;
+            messageText += `   💼 ${reason}\n`;
+            messageText += `   🌐 加班頁面：${overtimeUrl}\n\n`;
         });
 
         messageText += '如果您願意加班，請聯繫相關負責人確認。';
@@ -505,10 +514,13 @@ export async function sendPersonalOvertimeStatus(
             messageText += `共有 ${opportunities.length} 個加班機會：\n\n`;
 
             opportunities.forEach((opp, index) => {
+                const overtimeUrl = `https://leave-ten.vercel.app/leave/${opp.date}`;
+
                 messageText += `${index + 1}. 📅 ${opp.date}\n`;
                 messageText += `   👤 ${opp.requesterTeam}班 ${opp.requesterName}\n`;
                 messageText += `   ⏰ ${opp.period}\n`;
-                messageText += `   💼 ${opp.reason}\n\n`;
+                messageText += `   💼 ${opp.reason}\n`;
+                messageText += `   🌐 加班頁面：${overtimeUrl}\n\n`;
             });
         }
 
