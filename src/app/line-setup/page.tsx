@@ -59,6 +59,7 @@ export default function LineSetupPage() {
             console.log('強制使用硬編碼 LIFF ID:', liffId);
             console.log('LIFF ID 長度:', liffId.length);
             console.log('LIFF ID 類型:', typeof liffId);
+            console.log('LIFF ID 值:', JSON.stringify(liffId));
 
             // 驗證 LIFF ID 格式
             if (!liffId || typeof liffId !== 'string' || liffId.length === 0) {
@@ -69,10 +70,15 @@ export default function LineSetupPage() {
             if (window.liff) {
                 console.log('LIFF SDK 已存在，直接初始化');
                 try {
-                    if (window.liff.isInClient === undefined) {
-                        await window.liff.init({ liffId });
-                        console.log('LIFF 初始化成功');
-                    }
+                    // 檢查 LIFF 是否已經初始化
+                    console.log('檢查 LIFF 初始化狀態...');
+                    console.log('window.liff.isInClient 類型:', typeof window.liff.isInClient);
+
+                    // 強制初始化，即使可能已經初始化過
+                    console.log('強制初始化 LIFF，參數:', JSON.stringify({ liffId }));
+                    await window.liff.init({ liffId: liffId });
+                    console.log('✅ LIFF 初始化成功');
+
                     setIsLiffReady(true);
 
                     if (window.liff.isLoggedIn()) {
@@ -86,6 +92,12 @@ export default function LineSetupPage() {
                     }
                 } catch (error) {
                     console.error('LIFF 初始化失敗:', error);
+                    console.error('錯誤詳情:', {
+                        message: error instanceof Error ? error.message : String(error),
+                        stack: error instanceof Error ? error.stack : undefined,
+                        liffId: liffId,
+                        liffIdType: typeof liffId
+                    });
                     setError(`LIFF 初始化失敗: ${error instanceof Error ? error.message : String(error)}`);
                 }
                 return;
@@ -98,17 +110,15 @@ export default function LineSetupPage() {
             script.onload = async () => {
                 try {
                     console.log('LIFF SDK 載入成功，檢查初始化狀態...');
+                    console.log('window.liff 物件:', window.liff);
+                    console.log('window.liff.init 函數:', typeof window.liff.init);
 
                     // 強制重新初始化，不檢查是否已初始化
                     console.log('開始初始化 LIFF...');
-                    console.log('調用 liff.init，參數:', { liffId });
+                    console.log('調用 liff.init，參數:', JSON.stringify({ liffId }));
 
-                    if (window.liff.isInClient === undefined) {
-                        await window.liff.init({ liffId: liffId });
-                        console.log('✅ LIFF 初始化成功');
-                    } else {
-                        console.log('LIFF 已經初始化過');
-                    }
+                    await window.liff.init({ liffId: liffId });
+                    console.log('✅ LIFF 初始化成功');
 
                     setIsLiffReady(true);
 
