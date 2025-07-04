@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
                 user.selectedName!,
                 user.selectedTeam!,
                 user.selectedRole!,
+                requesterName,
                 requesterTeam,
                 date,
                 overtimeType,
@@ -211,6 +212,7 @@ async function checkOvertimeEligibility(
     memberName: string,
     memberTeam: string,
     memberRole: string,
+    requesterName: string,
     requesterTeam: string,
     date: string,
     overtimeType?: string,
@@ -218,7 +220,7 @@ async function checkOvertimeEligibility(
 ): Promise<{ eligible: boolean; reason?: string }> {
     try {
         // 不能為自己加班
-        if (memberName === memberName) { // 這裡應該比較請假者姓名，但目前沒有傳入
+        if (memberName === requesterName) {
             return { eligible: false };
         }
         
@@ -304,6 +306,7 @@ export async function GET(request: NextRequest) {
                 memberName,
                 team,
                 '', // role not needed for this check
+                record.name,
                 record.team,
                 record.date
             );
