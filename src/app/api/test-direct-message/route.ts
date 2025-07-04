@@ -35,10 +35,31 @@ export async function POST(request: NextRequest) {
         
     } catch (error) {
         console.error('發送測試訊息失敗:', error);
-        
-        return NextResponse.json({ 
-            error: error instanceof Error ? error.message : '未知錯誤',
-            lineUserId: request.body ? JSON.parse(await request.text()).lineUserId : 'unknown'
+
+        // 詳細的錯誤信息
+        let errorDetails = {
+            message: error instanceof Error ? error.message : '未知錯誤',
+            name: error instanceof Error ? error.name : 'UnknownError',
+            stack: error instanceof Error ? error.stack : undefined
+        };
+
+        // 如果是 LINE API 錯誤，提供更多信息
+        if (error && typeof error === 'object' && 'response' in error) {
+            const lineError = error as any;
+            errorDetails = {
+                ...errorDetails,
+                statusCode: lineError.response?.status,
+                statusMessage: lineError.response?.statusText,
+                responseData: lineError.response?.data
+            };
+        }
+
+        console.error('詳細錯誤信息:', errorDetails);
+
+        return NextResponse.json({
+            error: errorDetails.message,
+            details: errorDetails,
+            lineUserId: lineUserId || 'unknown'
         }, { status: 500 });
     }
 }
