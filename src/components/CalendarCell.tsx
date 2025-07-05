@@ -310,20 +310,24 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                     if (fhProvidedTeam) {
                         teamToSuggest1 = fhProvidedTeam;
                         if (detailedLog) console.log(`  [FH] Using provided .team field: '${teamToSuggest1}'.`);
+                        addSuggestion(teamToSuggest1, 'FH');
                     } else {
-                        // 優先建議大休班級
+                        // 先添加大休班級建議（如果存在）
                         const bigRestTeam = getBigRestTeam();
                         if (bigRestTeam) {
-                            teamToSuggest1 = bigRestTeam;
-                            if (detailedLog) console.log(`  [FH] Found big rest team: '${teamToSuggest1}'.`);
-                        } else if (memberOriginalShift) { // 如果沒有大休班級，使用原有邏輯
+                            addSuggestion(bigRestTeam, 'FH');
+                            if (detailedLog) console.log(`  [FH] Added big rest team: '${bigRestTeam}'.`);
+                        }
+
+                        // 然後添加原有邏輯的建議
+                        if (memberOriginalShift) {
                             if (memberOriginalShift === '早班') teamToSuggest1 = findTeamByShiftType('中班');
                             else if (memberOriginalShift === '中班') teamToSuggest1 = findTeamByShiftType('早班');
                             else if (memberOriginalShift === '夜班') teamToSuggest1 = findTeamByShiftType('早班'); // Simplified: current day's early shift as stand-in
-                            if (detailedLog) console.log(`  [FH] No big rest team. Derived dynamic suggestion for '${memberOriginalShift}' leaver: '${teamToSuggest1 || 'None found'}'.`);
+                            if (detailedLog) console.log(`  [FH] Original logic suggestion for '${memberOriginalShift}' leaver: '${teamToSuggest1 || 'None found'}'.`);
+                            addSuggestion(teamToSuggest1, 'FH');
                         }
                     }
-                    addSuggestion(teamToSuggest1, 'FH');
                 } else if (detailedLog) {
                     console.log(`  [FH] Slot is confirmed. No suggestion needed.`);
                 }
@@ -340,13 +344,17 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                     if (shProvidedTeam) {
                         teamToSuggest2 = shProvidedTeam;
                         if (detailedLog) console.log(`  [SH] Using provided .team field: '${teamToSuggest2}'.`);
+                        addSuggestion(teamToSuggest2, 'SH');
                     } else {
-                        // 優先建議大休班級
+                        // 先添加大休班級建議（如果存在）
                         const bigRestTeam = getBigRestTeam();
                         if (bigRestTeam) {
-                            teamToSuggest2 = bigRestTeam;
-                            if (detailedLog) console.log(`  [SH] Found big rest team: '${teamToSuggest2}'.`);
-                        } else if (memberOriginalShift) { // 如果沒有大休班級，使用原有邏輯
+                            addSuggestion(bigRestTeam, 'SH');
+                            if (detailedLog) console.log(`  [SH] Added big rest team: '${bigRestTeam}'.`);
+                        }
+
+                        // 然後添加原有邏輯的建議
+                        if (memberOriginalShift) {
                             if (memberOriginalShift === '早班') {
                                 teamToSuggest2 = findTeamByShiftType('小休');
                                 if (!teamToSuggest2) teamToSuggest2 = findTeamByShiftType('夜班');
@@ -356,10 +364,10 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                             } else if (memberOriginalShift === '夜班') {
                                 teamToSuggest2 = findTeamByShiftType('中班'); // Simplified: current day's mid shift as stand-in
                             }
-                            if (detailedLog) console.log(`  [SH] No big rest team. Derived dynamic suggestion for '${memberOriginalShift}' leaver: '${teamToSuggest2 || 'None found'}'.`);
+                            if (detailedLog) console.log(`  [SH] Original logic suggestion for '${memberOriginalShift}' leaver: '${teamToSuggest2 || 'None found'}'.`);
+                            addSuggestion(teamToSuggest2, 'SH');
                         }
                     }
-                    addSuggestion(teamToSuggest2, 'SH');
                 } else if (detailedLog) {
                     console.log(`  [SH] Slot is confirmed. No suggestion needed.`);
                 }
