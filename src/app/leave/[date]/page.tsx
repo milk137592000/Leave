@@ -1511,7 +1511,9 @@ const LeaveDatePage: React.FC = () => {
                 date: record.date,
                 name: record.name,
                 confirm,
-                halfType
+                halfType,
+                cancelledByName: userProfile?.memberName,
+                cancelledByDisplayName: liffProfile?.displayName || userProfile?.memberName
             };
 
             // 如果是取消確認，同時清空相應的人員資料
@@ -1563,10 +1565,14 @@ const LeaveDatePage: React.FC = () => {
                     secondHalfMember?: undefined;
                 };
                 clearOvertime?: boolean;
+                cancelledByName?: string;
+                cancelledByDisplayName?: string;
             } = {
                 date: record.date,
                 name: record.name,
-                clearOvertime: true  // 明確告知後端這是取消加班的請求
+                clearOvertime: true,  // 明確告知後端這是取消加班的請求
+                cancelledByName: userProfile?.memberName,
+                cancelledByDisplayName: liffProfile?.displayName || userProfile?.memberName
             };
 
             // 如果是自定義時段加班

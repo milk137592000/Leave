@@ -519,7 +519,7 @@ export async function DELETE(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { date, name, fullDayOvertime, customOvertime, confirm, halfType, clearOvertime, lineUserId, isProxyOvertimeRequest } = body;
+        const { date, name, fullDayOvertime, customOvertime, confirm, halfType, clearOvertime, lineUserId, isProxyOvertimeRequest, cancelledByName, cancelledByDisplayName } = body;
 
         if (!date || !name) {
             return NextResponse.json(
@@ -541,9 +541,77 @@ export async function PUT(request: Request) {
 
         // 明確處理取消加班的請求
         if (clearOvertime) {
-            console.log('處理取消加班請求:', { date, name });
+            console.log('處理取消加班請求:', { date, name, cancelledByName });
 
-            // 發送取消通知（排除原請假人）
+            // 收集被取消的加班人員信息，用於發送代理取消通知
+            const cancelledOvertimeMembers: Array<{
+                memberName: string;
+                overtimeTime: string;
+                overtimeType: string;
+            }> = [];
+
+            // 收集全天加班的被取消人員
+            if (record.fullDayOvertime) {
+                if (record.fullDayOvertime.type === '加整班' && record.fullDayOvertime.fullDayMember?.name) {
+                    cancelledOvertimeMembers.push({
+                        memberName: record.fullDayOvertime.fullDayMember.name,
+                        overtimeTime: '全天',
+                        overtimeType: '加整班'
+                    });
+                }
+                if (record.fullDayOvertime.type === '加一半') {
+                    if (record.fullDayOvertime.firstHalfMember?.name) {
+                        cancelledOvertimeMembers.push({
+                            memberName: record.fullDayOvertime.firstHalfMember.name,
+                            overtimeTime: '前半天',
+                            overtimeType: '加一半'
+                        });
+                    }
+                    if (record.fullDayOvertime.secondHalfMember?.name) {
+                        cancelledOvertimeMembers.push({
+                            memberName: record.fullDayOvertime.secondHalfMember.name,
+                            overtimeTime: '後半天',
+                            overtimeType: '加一半'
+                        });
+                    }
+                }
+            }
+
+            // 收集自定義時段加班的被取消人員
+            if (record.customOvertime?.name) {
+                cancelledOvertimeMembers.push({
+                    memberName: record.customOvertime.name,
+                    overtimeTime: `${record.customOvertime.startTime} - ${record.customOvertime.endTime}`,
+                    overtimeType: '自定義時段'
+                });
+            }
+
+            // 發送代理取消加班通知給被取消的加班人員
+            if (cancelledByName && cancelledByDisplayName && cancelledOvertimeMembers.length > 0) {
+                const { sendProxyOvertimeCancelNotification } = await import('@/services/lineBot');
+
+                for (const member of cancelledOvertimeMembers) {
+                    // 只有當取消者不是加班人員本人時，才發送代理取消通知
+                    if (cancelledByName !== member.memberName) {
+                        try {
+                            await sendProxyOvertimeCancelNotification(member.memberName, {
+                                cancelledByName,
+                                cancelledByDisplayName,
+                                targetMemberName: member.memberName,
+                                date,
+                                overtimeTime: member.overtimeTime,
+                                overtimeType: member.overtimeType,
+                                reason: '加班已被取消'
+                            });
+                            console.log(`代理取消加班通知已發送給 ${member.memberName}`);
+                        } catch (error) {
+                            console.error(`發送代理取消加班通知給 ${member.memberName} 失敗:`, error);
+                        }
+                    }
+                }
+            }
+
+            // 發送群體取消通知（排除原請假人）
             if (record.fullDayOvertime || record.customOvertime) {
                 await sendLineOvertimeCancelledNotificationWithExclusion(
                     record,
@@ -570,7 +638,56 @@ export async function PUT(request: Request) {
                     memberType = 'fullDay';
                 }
 
+                // 如果是取消確認，先收集被取消的加班人員信息
+                let cancelledMemberInfo: {
+                    memberName: string;
+                    overtimeTime: string;
+                    overtimeType: string;
+                } | null = null;
+
+                if (!confirm) {
+                    const cancelledMemberName = getConfirmedMemberName(record, overtimeType, memberType);
+                    if (cancelledMemberName) {
+                        let overtimeTime = '';
+                        if (memberType === 'fullDay') {
+                            overtimeTime = '全天';
+                        } else if (memberType === '前半') {
+                            overtimeTime = '前半天';
+                        } else if (memberType === '後半') {
+                            overtimeTime = '後半天';
+                        }
+
+                        cancelledMemberInfo = {
+                            memberName: cancelledMemberName,
+                            overtimeTime,
+                            overtimeType: overtimeType === '加整班' ? '加整班' : '加一半'
+                        };
+                    }
+                }
+
                 await updateOvertimeConfirm(record, overtimeType, memberType, confirm);
+
+                // 如果是取消確認，發送代理取消加班通知
+                if (!confirm && cancelledMemberInfo && cancelledByName && cancelledByDisplayName) {
+                    // 只有當取消者不是加班人員本人時，才發送代理取消通知
+                    if (cancelledByName !== cancelledMemberInfo.memberName) {
+                        const { sendProxyOvertimeCancelNotification } = await import('@/services/lineBot');
+                        try {
+                            await sendProxyOvertimeCancelNotification(cancelledMemberInfo.memberName, {
+                                cancelledByName,
+                                cancelledByDisplayName,
+                                targetMemberName: cancelledMemberInfo.memberName,
+                                date,
+                                overtimeTime: cancelledMemberInfo.overtimeTime,
+                                overtimeType: cancelledMemberInfo.overtimeType,
+                                reason: '加班確認已被取消'
+                            });
+                            console.log(`代理取消加班確認通知已發送給 ${cancelledMemberInfo.memberName}`);
+                        } catch (error) {
+                            console.error(`發送代理取消加班確認通知給 ${cancelledMemberInfo.memberName} 失敗:`, error);
+                        }
+                    }
+                }
 
                 // 如果是確認加班，通知其他人機會已消失（排除確認加班的人）
                 if (confirm) {

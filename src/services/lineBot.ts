@@ -124,6 +124,16 @@ export interface ProxyOvertimeNotification {
     overtimeType: string;
 }
 
+export interface ProxyOvertimeCancelNotification {
+    cancelledByName: string;
+    cancelledByDisplayName: string;
+    targetMemberName: string;
+    date: string;
+    overtimeTime: string;
+    overtimeType: string;
+    reason?: string;
+}
+
 /**
  * 發送加班通知給指定的 LINE 用戶
  */
@@ -1444,4 +1454,80 @@ ${proxyByName} (${proxyByDisplayName}) 已為您填寫加班：
 👤 加班人：${targetMemberName}
 
 如有疑問，請聯繫 ${proxyByName}。`;
+}
+
+/**
+ * 發送代理取消加班通知給被取消加班的人
+ */
+export async function sendProxyOvertimeCancelNotification(
+    targetMemberName: string,
+    notification: ProxyOvertimeCancelNotification
+): Promise<boolean> {
+    try {
+        // 根據成員名稱查找對應的 LINE 用戶
+        const connectDB = (await import('@/lib/mongodb')).default;
+        const UserProfile = (await import('@/models/UserProfile')).default;
+
+        await connectDB();
+
+        const userProfile = await UserProfile.findOne({ memberName: targetMemberName });
+
+        if (!userProfile) {
+            console.log(`找不到成員 ${targetMemberName} 的 LINE 綁定資訊`);
+            return false;
+        }
+
+        const message: TextMessage = {
+            type: 'text',
+            text: createProxyOvertimeCancelMessage(notification)
+        };
+
+        // 首先嘗試使用 LINE SDK
+        try {
+            const client = createLineClient();
+            await client.pushMessage(userProfile.lineUserId, message);
+            console.log(`✅ 代理取消加班通知發送成功給 ${targetMemberName} (使用 SDK)`);
+            return true;
+        } catch (sdkError) {
+            console.warn(`⚠️ LINE SDK 發送失敗，嘗試直接 API 調用:`, sdkError);
+
+            // 備用方案：直接調用 LINE API
+            const directSuccess = await sendLineMessageDirect(userProfile.lineUserId, message.text);
+            if (directSuccess) {
+                console.log(`✅ 代理取消加班通知發送成功給 ${targetMemberName} (使用直接 API)`);
+                return true;
+            } else {
+                throw sdkError; // 如果直接 API 也失敗，拋出原始錯誤
+            }
+        }
+    } catch (error) {
+        console.error(`❌ 發送代理取消加班通知給 ${targetMemberName} 失敗:`, error);
+        return false;
+    }
+}
+
+/**
+ * 創建代理取消加班通知訊息
+ */
+function createProxyOvertimeCancelMessage(notification: ProxyOvertimeCancelNotification): string {
+    const { cancelledByName, cancelledByDisplayName, targetMemberName, date, overtimeTime, overtimeType, reason } = notification;
+
+    const formattedDate = new Date(date).toLocaleDateString('zh-TW', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+    });
+
+    return `❌ 代理取消加班通知
+
+${cancelledByName} (${cancelledByDisplayName}) 已為您取消加班：
+
+📅 日期：${formattedDate}
+⏰ 時段：${overtimeTime}
+💼 類型：${overtimeType}
+👤 加班人：${targetMemberName}
+${reason ? `📝 取消原因：${reason}` : ''}
+
+如有疑問，請聯繫 ${cancelledByName}。`;
 }
