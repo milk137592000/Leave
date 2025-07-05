@@ -429,7 +429,24 @@ async function checkOvertimeEligibility(
             continue;
         }
 
-        // 其他班別限制邏輯...
+        // 其他班別也可能有加班資格，但優先級較低
+        // 班長有更高的加班資格
+        if (role === '班長') {
+            eligibleOpportunities.push({
+                record,
+                reason: `您是${team}班班長，可協助${leaveTeam}班加班`
+            });
+            continue;
+        }
+
+        // 一般班員也可以加班，但需要根據班別判斷
+        if (memberShift === '中班' || memberShift === '夜班' || memberShift === '早班') {
+            eligibleOpportunities.push({
+                record,
+                reason: `您的${team}班當天${memberShift}，可協助${leaveTeam}班加班`
+            });
+            continue;
+        }
     }
 
     return eligibleOpportunities;

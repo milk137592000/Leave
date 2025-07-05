@@ -225,9 +225,23 @@ async function checkOvertimeEligibility(
             };
         }
         
-        // 其他情況下，根據班別和角色判斷
-        // 這裡可以添加更複雜的邏輯
-        
+        // 其他班別也可能有加班資格，但優先級較低
+        // 中班、夜班、早班的員工也可以考慮加班，特別是班長
+        if (memberRole === '班長') {
+            return {
+                eligible: true,
+                reason: `您是${memberTeam}班班長，可協助${requesterTeam}班加班`
+            };
+        }
+
+        // 一般班員也可以加班，但需要根據班別判斷
+        if (memberShift === '中班' || memberShift === '夜班' || memberShift === '早班') {
+            return {
+                eligible: true,
+                reason: `您的${memberTeam}班當天${memberShift}，可協助${requesterTeam}班加班`
+            };
+        }
+
         return { eligible: false };
         
     } catch (error) {
