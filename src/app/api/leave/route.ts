@@ -995,12 +995,19 @@ function calculateOvertimeSuggestions(leaveRecord: any) {
         }
 
         if (bigRestTeam) {
-            // 如果有大休班級，優先建議大休班級
-            suggestions.push({
-                suggestedTeam: bigRestTeam,
-                reason: `${bigRestTeam}班當天大休，可協助加班`,
-                periodDescription: formatPeriodForNotification(period)
-            });
+            // 檢查是否為禮拜二（大休班級禮拜二不得加班）
+            const isTuesday = new Date(date).getDay() === 2; // 0=週日, 1=週一, 2=週二...
+
+            if (!isTuesday) {
+                // 如果有大休班級且不是禮拜二，優先建議大休班級
+                suggestions.push({
+                    suggestedTeam: bigRestTeam,
+                    reason: `${bigRestTeam}班當天大休，可協助加班`,
+                    periodDescription: formatPeriodForNotification(period)
+                });
+            } else {
+                console.log(`⚠️  ${bigRestTeam}班大休但因禮拜二限制不建議加班 (${date})`);
+            }
         } else {
             // 如果沒有大休班級，根據現有邏輯計算建議
             const shift = getShiftForDate(new Date(date), team);
