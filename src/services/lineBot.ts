@@ -204,13 +204,21 @@ function createOvertimeMessage(notification: OvertimeNotification): string {
     // 構建加班頁面網址
     const overtimeUrl = `https://leave-ten.vercel.app/leave/${date}`;
 
+    // 確保 suggestedTeam 是有效的班級名稱（A, B, C, D）
+    const validTeams = ['A', 'B', 'C', 'D'];
+    const isValidTeam = validTeams.includes(suggestedTeam);
+
+    if (!isValidTeam) {
+        console.warn(`⚠️  警告：suggestedTeam "${suggestedTeam}" 不是有效的班級名稱`);
+    }
+
     return `🔔 加班通知
 
 📅 日期：${date}
 👤 請假人員：${requesterTeam}班 ${requesterName}
 ⏰ 時段：${period}
 
-💼 建議加班班級：${suggestedTeam}班
+💼 建議加班班級：${isValidTeam ? suggestedTeam + '班' : suggestedTeam}
 📝 原因：${reason}
 
 🌐 點擊前往加班頁面：
