@@ -310,12 +310,18 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                     if (fhProvidedTeam) {
                         teamToSuggest1 = fhProvidedTeam;
                         if (detailedLog) console.log(`  [FH] Using provided .team field: '${teamToSuggest1}'.`);
-                    } else if (memberOriginalShift) { // MODIFIED: Use dynamic suggestion
-                        if (memberOriginalShift === '早班') teamToSuggest1 = findTeamByShiftType('中班');
-                        else if (memberOriginalShift === '中班') teamToSuggest1 = findTeamByShiftType('早班');
-                        else if (memberOriginalShift === '夜班') teamToSuggest1 = findTeamByShiftType('早班'); // Simplified: current day's early shift as stand-in
-                        // Add more conditions if other original shifts like '小休', '大休' need specific suggestions for FH
-                        if (detailedLog) console.log(`  [FH] .team field empty. Derived dynamic suggestion for '${memberOriginalShift}' leaver: '${teamToSuggest1 || 'None found'}'.`);
+                    } else {
+                        // 優先建議大休班級
+                        const bigRestTeam = getBigRestTeam();
+                        if (bigRestTeam) {
+                            teamToSuggest1 = bigRestTeam;
+                            if (detailedLog) console.log(`  [FH] Found big rest team: '${teamToSuggest1}'.`);
+                        } else if (memberOriginalShift) { // 如果沒有大休班級，使用原有邏輯
+                            if (memberOriginalShift === '早班') teamToSuggest1 = findTeamByShiftType('中班');
+                            else if (memberOriginalShift === '中班') teamToSuggest1 = findTeamByShiftType('早班');
+                            else if (memberOriginalShift === '夜班') teamToSuggest1 = findTeamByShiftType('早班'); // Simplified: current day's early shift as stand-in
+                            if (detailedLog) console.log(`  [FH] No big rest team. Derived dynamic suggestion for '${memberOriginalShift}' leaver: '${teamToSuggest1 || 'None found'}'.`);
+                        }
                     }
                     addSuggestion(teamToSuggest1, 'FH');
                 } else if (detailedLog) {
@@ -334,18 +340,24 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                     if (shProvidedTeam) {
                         teamToSuggest2 = shProvidedTeam;
                         if (detailedLog) console.log(`  [SH] Using provided .team field: '${teamToSuggest2}'.`);
-                    } else if (memberOriginalShift) { // MODIFIED: Use dynamic suggestion
-                        if (memberOriginalShift === '早班') {
-                            teamToSuggest2 = findTeamByShiftType('小休');
-                            if (!teamToSuggest2) teamToSuggest2 = findTeamByShiftType('夜班');
-                        } else if (memberOriginalShift === '中班') {
-                            teamToSuggest2 = findTeamByShiftType('小休');
-                            if (!teamToSuggest2) teamToSuggest2 = findTeamByShiftType('夜班');
-                        } else if (memberOriginalShift === '夜班') {
-                            teamToSuggest2 = findTeamByShiftType('中班'); // Simplified: current day's mid shift as stand-in
+                    } else {
+                        // 優先建議大休班級
+                        const bigRestTeam = getBigRestTeam();
+                        if (bigRestTeam) {
+                            teamToSuggest2 = bigRestTeam;
+                            if (detailedLog) console.log(`  [SH] Found big rest team: '${teamToSuggest2}'.`);
+                        } else if (memberOriginalShift) { // 如果沒有大休班級，使用原有邏輯
+                            if (memberOriginalShift === '早班') {
+                                teamToSuggest2 = findTeamByShiftType('小休');
+                                if (!teamToSuggest2) teamToSuggest2 = findTeamByShiftType('夜班');
+                            } else if (memberOriginalShift === '中班') {
+                                teamToSuggest2 = findTeamByShiftType('小休');
+                                if (!teamToSuggest2) teamToSuggest2 = findTeamByShiftType('夜班');
+                            } else if (memberOriginalShift === '夜班') {
+                                teamToSuggest2 = findTeamByShiftType('中班'); // Simplified: current day's mid shift as stand-in
+                            }
+                            if (detailedLog) console.log(`  [SH] No big rest team. Derived dynamic suggestion for '${memberOriginalShift}' leaver: '${teamToSuggest2 || 'None found'}'.`);
                         }
-                        // Add more conditions if other original shifts like '小休', '大休' need specific suggestions for SH
-                        if (detailedLog) console.log(`  [SH] .team field empty. Derived dynamic suggestion for '${memberOriginalShift}' leaver: '${teamToSuggest2 || 'None found'}'.`);
                     }
                     addSuggestion(teamToSuggest2, 'SH');
                 } else if (detailedLog) {
