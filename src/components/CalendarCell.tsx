@@ -312,11 +312,14 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                         if (detailedLog) console.log(`  [FH] Using provided .team field: '${teamToSuggest1}'.`);
                         addSuggestion(teamToSuggest1, 'FH');
                     } else {
-                        // 先添加大休班級建議（如果存在）
+                        // 先添加大休班級建議（如果存在且不是禮拜二）
                         const bigRestTeam = getBigRestTeam();
-                        if (bigRestTeam) {
+                        const isTuesday = date.getDay() === 2; // 0=週日, 1=週一, 2=週二...
+                        if (bigRestTeam && !isTuesday) {
                             addSuggestion(bigRestTeam, 'FH');
                             if (detailedLog) console.log(`  [FH] Added big rest team: '${bigRestTeam}'.`);
+                        } else if (bigRestTeam && isTuesday) {
+                            if (detailedLog) console.log(`  [FH] Big rest team '${bigRestTeam}' not suggested (Tuesday restriction).`);
                         }
 
                         // 然後添加原有邏輯的建議
@@ -346,11 +349,14 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                         if (detailedLog) console.log(`  [SH] Using provided .team field: '${teamToSuggest2}'.`);
                         addSuggestion(teamToSuggest2, 'SH');
                     } else {
-                        // 先添加大休班級建議（如果存在）
+                        // 先添加大休班級建議（如果存在且不是禮拜二）
                         const bigRestTeam = getBigRestTeam();
-                        if (bigRestTeam) {
+                        const isTuesday = date.getDay() === 2; // 0=週日, 1=週一, 2=週二...
+                        if (bigRestTeam && !isTuesday) {
                             addSuggestion(bigRestTeam, 'SH');
                             if (detailedLog) console.log(`  [SH] Added big rest team: '${bigRestTeam}'.`);
+                        } else if (bigRestTeam && isTuesday) {
+                            if (detailedLog) console.log(`  [SH] Big rest team '${bigRestTeam}' not suggested (Tuesday restriction).`);
                         }
 
                         // 然後添加原有邏輯的建議
@@ -383,8 +389,18 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                         teamToSuggestFull = fullDayProvidedTeam;
                         if (detailedLog) console.log(`  [FullDay] Using provided .team field: '${teamToSuggestFull}'.`);
                     } else {
-                        teamToSuggestFull = getBigRestTeam(); // Fallback to big rest team
-                        if (detailedLog) console.log(`  [FullDay] .team field empty. Derived suggestion (big rest): '${teamToSuggestFull}'.`);
+                        const bigRestTeam = getBigRestTeam();
+                        const isTuesday = date.getDay() === 2; // 0=週日, 1=週一, 2=週二...
+                        if (bigRestTeam && !isTuesday) {
+                            teamToSuggestFull = bigRestTeam; // Fallback to big rest team
+                            if (detailedLog) console.log(`  [FullDay] .team field empty. Derived suggestion (big rest): '${teamToSuggestFull}'.`);
+                        } else if (bigRestTeam && isTuesday) {
+                            teamToSuggestFull = null; // Big rest team cannot work on Tuesday
+                            if (detailedLog) console.log(`  [FullDay] Big rest team '${bigRestTeam}' not suggested (Tuesday restriction).`);
+                        } else {
+                            teamToSuggestFull = null;
+                            if (detailedLog) console.log(`  [FullDay] No big rest team found.`);
+                        }
                     }
                     addSuggestion(teamToSuggestFull, 'FullDay');
                 } else if (detailedLog) {
@@ -419,11 +435,18 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                     }
                 }
 
-                // 如果有大休班級，添加大休班級建議
+                // 如果有大休班級，添加大休班級建議（但禮拜二不得加班）
                 if (bigRestTeam) {
-                    addSuggestion(bigRestTeam, 'BigRest');
-                    if (detailedLog) {
-                        console.log(`  [BigRest Default] Added suggestion '${bigRestTeam}' for full day leave (big rest team)`);
+                    const isTuesday = date.getDay() === 2; // 0=週日, 1=週一, 2=週二...
+                    if (!isTuesday) {
+                        addSuggestion(bigRestTeam, 'BigRest');
+                        if (detailedLog) {
+                            console.log(`  [BigRest Default] Added suggestion '${bigRestTeam}' for full day leave (big rest team)`);
+                        }
+                    } else {
+                        if (detailedLog) {
+                            console.log(`  [BigRest Default] Big rest team '${bigRestTeam}' not suggested (Tuesday restriction)`);
+                        }
                     }
                 }
 
