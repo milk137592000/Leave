@@ -532,7 +532,35 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
         const suggestedTeams = getSuggestedOvertimeTeams(record);
         const isSuggestedTeam = suggestedTeams.includes(selectedTeam);
 
+        // 檢查當前班別是否已經有成員確認了加班
+        const hasCurrentTeamConfirmedOvertime = () => {
+            // 檢查全天加班
+            if (record.fullDayOvertime) {
+                if (record.fullDayOvertime.type === '加整班' &&
+                    record.fullDayOvertime.fullDayMember?.confirmed &&
+                    record.fullDayOvertime.fullDayMember.team === selectedTeam) {
+                    return true;
+                }
+                if (record.fullDayOvertime.type === '加一半') {
+                    if ((record.fullDayOvertime.firstHalfMember?.confirmed &&
+                         record.fullDayOvertime.firstHalfMember.team === selectedTeam) ||
+                        (record.fullDayOvertime.secondHalfMember?.confirmed &&
+                         record.fullDayOvertime.secondHalfMember.team === selectedTeam)) {
+                        return true;
+                    }
+                }
+            }
+            // 檢查自定義時段加班
+            if (record.customOvertime?.confirmed && record.customOvertime.team === selectedTeam) {
+                return true;
+            }
+            return false;
+        };
 
+        // 如果當前班別已經有成員確認了加班，則不顯示該請假記錄
+        if (hasCurrentTeamConfirmedOvertime()) {
+            return false;
+        }
 
         // 如果是請假人員自己的班別，且不是系統建議的加班班級，則不顯示
         if (leaverTeam === selectedTeam && !isSuggestedTeam) {
