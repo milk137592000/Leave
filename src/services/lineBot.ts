@@ -698,7 +698,8 @@ export async function sendOvertimeCancelledNotification(
         if (error instanceof Error && error.message.includes('Invalid character in header')) {
             console.error('🚨 這是 LINE Channel Access Token 的格式問題！');
             console.error('💡 請檢查 LINE_CHANNEL_ACCESS_TOKEN 是否包含特殊字符');
-            console.error('💡 Token 預覽:', config.channelAccessToken.substring(0, 20) + '...');
+            const safeConfig = createSafeLineConfig();
+            console.error('💡 Token 預覽:', safeConfig.channelAccessToken.substring(0, 20) + '...');
         }
 
         return false;
@@ -1368,12 +1369,7 @@ async function checkOvertimeEligibilityInternal(
     }
 }
 
-/**
- * 驗證 LINE Bot 配置
- */
-export function validateLineConfig(): boolean {
-    return !!(config.channelAccessToken && config.channelSecret);
-}
+
 
 /**
  * 發送代理加班通知給被填寫加班的人

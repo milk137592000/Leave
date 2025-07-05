@@ -11,24 +11,28 @@ export default function TestProxyOvertimePage() {
         setResult('');
 
         try {
-            // 測試代理加班通知
-            const { sendProxyOvertimeNotification } = await import('@/services/lineBot');
-            
-            const testNotification = {
-                proxyByName: '測試代理人',
-                proxyByDisplayName: '測試代理人顯示名稱',
-                targetMemberName: '測試被代理人',
-                date: '2025-01-07',
-                overtimeTime: '全天',
-                overtimeType: '加整班'
-            };
+            // 通過 API 測試代理加班通知
+            const response = await fetch('/api/test-proxy-overtime', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    proxyByName: '測試代理人',
+                    proxyByDisplayName: '測試代理人顯示名稱',
+                    targetMemberName: '測試被代理人',
+                    date: '2025-01-07',
+                    overtimeTime: '全天',
+                    overtimeType: '加整班'
+                }),
+            });
 
-            const success = await sendProxyOvertimeNotification('測試被代理人', testNotification);
-            
-            if (success) {
+            const data = await response.json();
+
+            if (response.ok && data.success) {
                 setResult('✅ 代理加班通知發送成功！');
             } else {
-                setResult('❌ 代理加班通知發送失敗');
+                setResult(`❌ 代理加班通知發送失敗: ${data.error || '未知錯誤'}`);
             }
         } catch (error) {
             console.error('測試失敗:', error);
