@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { TEAM_START_POSITIONS } from '@/utils/schedule';
 import type { LeaveRecord } from "@/types/LeaveRecord";
-import { useClipboard } from '@/hooks/useBrowserSafe';
+
 
 // 模擬農曆日期
 const getLunarDate = (date: Date) => {
@@ -57,7 +57,6 @@ const generateSchedules = (year: number, month: number): DaySchedule[] => {
 
 export default function Home() {
     const router = useRouter();
-    const { copyToClipboard } = useClipboard();
     const [currentDate, setCurrentDate] = useState<Date>(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -147,28 +146,6 @@ export default function Home() {
                                 </option>
                             ))}
                         </select>
-                    </div>
-
-                    {/* LINE 連動功能按鈕 */}
-                    <div className="flex space-x-2">
-                        <button
-                            onClick={() => router.push('/line-admin')}
-                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
-                        >
-                            LINE 管理
-                        </button>
-                        <button
-                            onClick={async () => {
-                                const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID || 'YOUR_LIFF_ID'}`;
-                                const success = await copyToClipboard(liffUrl);
-                                if (success) {
-                                    alert('LIFF 連結已複製到剪貼簿，請分享給員工進行身份設定');
-                                }
-                            }}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-                        >
-                            複製設定連結
-                        </button>
                     </div>
                 </div>
                 <Calendar
