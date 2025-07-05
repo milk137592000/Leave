@@ -908,21 +908,21 @@ async function sendLineOvertimeOpportunityNotification(leaveRecord: any) {
             }
         }
 
-        // 發送內部API請求
-        const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/overtime-opportunity`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(notificationData)
+        // 直接調用通知邏輯，避免內部HTTP請求
+        console.log('直接發送加班機會通知:', notificationData);
+
+        const { sendLineOvertimeOpportunityNotificationDirect } = await import('@/services/lineBot');
+
+        const result = await sendLineOvertimeOpportunityNotificationDirect({
+            date,
+            requesterName: name,
+            requesterTeam: team,
+            period: period === 'fullDay' ? '全天' : JSON.stringify(period),
+            overtimeType: fullDayOvertime.type,
+            halfType: notificationData.halfType
         });
 
-        if (response.ok) {
-            const result = await response.json();
-            console.log('Line加班機會通知發送成功:', result);
-        } else {
-            console.error('Line加班機會通知發送失敗:', await response.text());
-        }
+        console.log('Line加班機會通知發送結果:', result);
 
     } catch (error) {
         console.error('發送Line加班機會通知時發生錯誤:', error);

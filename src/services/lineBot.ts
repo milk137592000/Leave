@@ -1001,6 +1001,197 @@ ${reason ? `📝 取消原因：${reason}` : ''}
 }
 
 /**
+ * 直接發送加班機會通知（不通過HTTP API）
+ */
+export async function sendLineOvertimeOpportunityNotificationDirect(
+    opportunity: {
+        date: string;
+        requesterName: string;
+        requesterTeam: string;
+        period: string;
+        overtimeType: string;
+        halfType?: string;
+    }
+): Promise<{ success: number; failed: number; total: number }> {
+    try {
+        console.log('開始直接發送加班機會通知:', opportunity);
+
+        // 導入必要的模組
+        const { default: connectDB } = await import('@/lib/mongodb');
+        const { default: UserProfile } = await import('@/models/UserProfile');
+        const { default: LineUserState } = await import('@/models/LineUserState');
+
+        await connectDB();
+
+        // 查找所有已註冊的 LINE 用戶
+        const [userProfiles, lineUsers] = await Promise.all([
+            UserProfile.find({ notificationEnabled: true }),
+            LineUserState.find({
+                step: 'name_selected',
+                selectedName: { $exists: true }
+            })
+        ]);
+
+        console.log(`找到 UserProfile 用戶: ${userProfiles.length} 人`);
+        console.log(`找到 LineUserState 用戶: ${lineUsers.length} 人`);
+
+        // 合併用戶資料，優先使用 UserProfile
+        const allUsers = new Map();
+
+        // 先添加 UserProfile 的用戶
+        userProfiles.forEach(user => {
+            allUsers.set(user.lineUserId, {
+                lineUserId: user.lineUserId,
+                name: user.memberName,
+                team: user.team,
+                role: user.role
+            });
+        });
+
+        // 再添加 LineUserState 的用戶（如果不存在於 UserProfile 中）
+        lineUsers.forEach(user => {
+            if (!allUsers.has(user.lineUserId)) {
+                allUsers.set(user.lineUserId, {
+                    lineUserId: user.lineUserId,
+                    name: user.selectedName,
+                    team: user.selectedTeam,
+                    role: '班員' // 預設角色
+                });
+            }
+        });
+
+        let successCount = 0;
+        let failedCount = 0;
+        const userList = Array.from(allUsers.values());
+
+        console.log(`合併後總用戶數: ${userList.length} 人`);
+
+        // 檢查每個用戶的加班資格並發送通知
+        for (const user of userList) {
+            try {
+                // 檢查加班資格
+                const eligibility = await checkOvertimeEligibilityInternal(
+                    user.name,
+                    user.team,
+                    user.role || '班員',
+                    opportunity.requesterName,
+                    opportunity.requesterTeam,
+                    opportunity.date
+                );
+
+                if (eligibility.eligible) {
+                    // 發送通知
+                    const success = await sendOvertimeNotification(
+                        user.lineUserId,
+                        {
+                            date: opportunity.date,
+                            requesterName: opportunity.requesterName,
+                            requesterTeam: opportunity.requesterTeam,
+                            period: opportunity.period,
+                            suggestedTeam: user.name,
+                            reason: eligibility.reason || '有加班機會'
+                        }
+                    );
+
+                    if (success) {
+                        successCount++;
+                        console.log(`✅ 通知發送成功: ${user.name} (${user.team}班)`);
+                    } else {
+                        failedCount++;
+                        console.log(`❌ 通知發送失敗: ${user.name} (${user.team}班)`);
+                    }
+                } else {
+                    console.log(`⏭️  跳過用戶: ${user.name} (${user.team}班) - 不符合資格`);
+                }
+            } catch (error) {
+                console.error(`處理用戶 ${user.name} 時發生錯誤:`, error);
+                failedCount++;
+            }
+        }
+
+        const result = {
+            success: successCount,
+            failed: failedCount,
+            total: userList.length
+        };
+
+        console.log('加班機會通知發送完成:', result);
+        return result;
+
+    } catch (error) {
+        console.error('直接發送加班機會通知失敗:', error);
+        return { success: 0, failed: 0, total: 0 };
+    }
+}
+
+/**
+ * 內部加班資格檢查函數
+ */
+async function checkOvertimeEligibilityInternal(
+    memberName: string,
+    memberTeam: string,
+    memberRole: string,
+    requesterName: string,
+    requesterTeam: string,
+    date: string
+): Promise<{ eligible: boolean; reason?: string }> {
+    try {
+        // 不能為自己加班
+        if (memberName === requesterName) {
+            return { eligible: false };
+        }
+
+        // 不能為同班同事加班
+        if (memberTeam === requesterTeam) {
+            return { eligible: false };
+        }
+
+        // 檢查該員工當天的班別
+        const { getShiftForDate } = await import('@/utils/schedule');
+        const memberShift = getShiftForDate(new Date(date), memberTeam);
+
+        // 大休班級優先有加班資格
+        if (memberShift === '大休') {
+            return {
+                eligible: true,
+                reason: `您的${memberTeam}班當天大休，可協助${requesterTeam}班加班`
+            };
+        }
+
+        // 小休班級也可能有加班資格
+        if (memberShift === '小休') {
+            return {
+                eligible: true,
+                reason: `您的${memberTeam}班當天小休，可協助${requesterTeam}班加班`
+            };
+        }
+
+        // 其他班別也可能有加班資格，但優先級較低
+        // 中班、夜班、早班的員工也可以考慮加班，特別是班長
+        if (memberRole === '班長') {
+            return {
+                eligible: true,
+                reason: `您是${memberTeam}班班長，可協助${requesterTeam}班加班`
+            };
+        }
+
+        // 一般班員也可以加班，但需要根據班別判斷
+        if (memberShift === '中班' || memberShift === '夜班' || memberShift === '早班') {
+            return {
+                eligible: true,
+                reason: `您的${memberTeam}班當天${memberShift}，可協助${requesterTeam}班加班`
+            };
+        }
+
+        return { eligible: false };
+
+    } catch (error) {
+        console.error('檢查加班資格失敗:', error);
+        return { eligible: false };
+    }
+}
+
+/**
  * 驗證 LINE Bot 配置
  */
 export function validateLineConfig(): boolean {
