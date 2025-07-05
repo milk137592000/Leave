@@ -496,8 +496,9 @@ export async function DELETE(request: Request) {
             });
         }
 
-        // 如果有加班需求，發送取消通知（排除原請假人）
-        if (recordToDelete && (recordToDelete.fullDayOvertime || recordToDelete.customOvertime)) {
+        // 發送取消通知（排除原請假人）
+        // 不管是否有加班需求，都發送通知讓大家知道請假已取消
+        if (recordToDelete) {
             await sendLineOvertimeCancelledNotificationWithExclusion(
                 recordToDelete,
                 reason || '請假記錄已刪除',

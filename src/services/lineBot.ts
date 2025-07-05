@@ -510,15 +510,25 @@ export async function sendOvertimeCancelledNotification(
     }
 ): Promise<boolean> {
     try {
+        // 根據取消原因判斷是加班機會取消還是請假取消
+        const isLeaveCancel = cancelledOpportunity.reason.includes('請假') ||
+                             cancelledOpportunity.reason.includes('刪除') ||
+                             cancelledOpportunity.reason.includes('取消');
+
+        const title = isLeaveCancel ? '📢 請假取消通知' : '❌ 加班機會已取消';
+        const content = isLeaveCancel ?
+            `${cancelledOpportunity.requesterTeam}班 ${cancelledOpportunity.requesterName} 的請假已取消` :
+            `${cancelledOpportunity.requesterTeam}班 ${cancelledOpportunity.requesterName} 的加班機會已取消`;
+
         const message: TextMessage = {
             type: 'text',
-            text: `❌ 加班機會已取消\n\n📅 日期：${cancelledOpportunity.date}\n👤 原請假人員：${cancelledOpportunity.requesterTeam}班 ${cancelledOpportunity.requesterName}\n📝 取消原因：${cancelledOpportunity.reason}\n\n感謝您的關注！`
+            text: `${title}\n\n📅 日期：${cancelledOpportunity.date}\n👤 人員：${cancelledOpportunity.requesterTeam}班 ${cancelledOpportunity.requesterName}\n📝 說明：${cancelledOpportunity.reason}\n\n${isLeaveCancel ? '原本的加班需求也一併取消。' : '感謝您的關注！'}`
         };
 
         await client.pushMessage(lineUserId, message);
         return true;
     } catch (error) {
-        console.error('發送加班取消通知失敗:', error);
+        console.error('發送取消通知失敗:', error);
         return false;
     }
 }

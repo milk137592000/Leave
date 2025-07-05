@@ -2062,6 +2062,10 @@ const LeaveDatePage: React.FC = () => {
             return;
         }
         try {
+            // 暫時使用固定的取消者信息，後續可以改為從session獲取
+            const currentUserName = '管理員';
+            const currentUserDisplayName = '系統管理員';
+
             const response = await fetch('/api/leave', {
                 method: 'DELETE',
                 headers: {
@@ -2070,6 +2074,9 @@ const LeaveDatePage: React.FC = () => {
                 body: JSON.stringify({
                     date: record.date,
                     name: record.name,
+                    cancelledByName: currentUserName,
+                    cancelledByDisplayName: currentUserDisplayName,
+                    reason: `${record.name} 的請假已被取消`
                 }),
             });
             if (!response.ok) {
