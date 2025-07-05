@@ -519,7 +519,7 @@ export async function DELETE(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { date, name, fullDayOvertime, customOvertime, confirm, halfType, clearOvertime } = body;
+        const { date, name, fullDayOvertime, customOvertime, confirm, halfType, clearOvertime, lineUserId, isProxyOvertimeRequest } = body;
 
         if (!date || !name) {
             return NextResponse.json(
@@ -610,6 +610,31 @@ export async function PUT(request: Request) {
                 return NextResponse.json(record);
             }
 
+            // 處理代理加班的身份驗證
+            let proxyOvertimeInfo = null;
+            if (lineUserId && isProxyOvertimeRequest) {
+                const { verifyUserAuth } = await import('@/lib/auth');
+                const authResult = await verifyUserAuth(lineUserId);
+
+                if (!authResult.success) {
+                    return NextResponse.json(
+                        {
+                            error: authResult.error,
+                            code: authResult.code
+                        },
+                        { status: 403 }
+                    );
+                }
+
+                // 設定代理加班資訊
+                proxyOvertimeInfo = {
+                    isProxy: true,
+                    proxyByName: authResult.user?.memberName,
+                    proxyByLineUserId: lineUserId,
+                    proxyByDisplayName: authResult.user?.displayName
+                };
+            }
+
             try {
                 // 更新全天加班信息
                 if (!record.fullDayOvertime) {
@@ -628,7 +653,8 @@ export async function PUT(request: Request) {
                     record.fullDayOvertime.fullDayMember = {
                         name: fullDayOvertime.fullDayMember.name,
                         team: fullDayOvertime.fullDayMember.team,
-                        confirmed: fullDayOvertime.fullDayMember.confirmed || false
+                        confirmed: fullDayOvertime.fullDayMember.confirmed || false,
+                        ...(proxyOvertimeInfo && { proxyRequest: proxyOvertimeInfo })
                     };
                 } else if (fullDayOvertime.type === '加一半') {
                     // 處理前半加班
@@ -636,7 +662,8 @@ export async function PUT(request: Request) {
                         record.fullDayOvertime.firstHalfMember = {
                             name: fullDayOvertime.firstHalfMember.name,
                             team: fullDayOvertime.firstHalfMember.team,
-                            confirmed: fullDayOvertime.firstHalfMember.confirmed || false
+                            confirmed: fullDayOvertime.firstHalfMember.confirmed || false,
+                            ...(proxyOvertimeInfo && { proxyRequest: proxyOvertimeInfo })
                         };
                     }
 
@@ -645,12 +672,18 @@ export async function PUT(request: Request) {
                         record.fullDayOvertime.secondHalfMember = {
                             name: fullDayOvertime.secondHalfMember.name,
                             team: fullDayOvertime.secondHalfMember.team,
-                            confirmed: fullDayOvertime.secondHalfMember.confirmed || false
+                            confirmed: fullDayOvertime.secondHalfMember.confirmed || false,
+                            ...(proxyOvertimeInfo && { proxyRequest: proxyOvertimeInfo })
                         };
                     }
                 }
-                
+
                 await record.save();
+
+                // 如果是代理加班，發送通知給被填寫加班的人
+                if (proxyOvertimeInfo && proxyOvertimeInfo.isProxy) {
+                    await sendProxyOvertimeNotification(record, proxyOvertimeInfo);
+                }
             } catch (error) {
                 console.error('Error updating overtime:', error);
                 return NextResponse.json(
@@ -1041,4 +1074,90 @@ function findNextShiftTeam(currentShift: string, date: string): string | null {
     }
 
     return null;
+}
+
+// 發送代理加班通知
+async function sendProxyOvertimeNotification(record: any, proxyOvertimeInfo: any) {
+    try {
+        // 只有在 LINE Bot 配置正確時才發送通知
+        if (!process.env.LINE_CHANNEL_ACCESS_TOKEN || !process.env.LINE_CHANNEL_SECRET) {
+            console.log('LINE Bot 未配置，跳過代理加班通知');
+            return;
+        }
+
+        // 確定被填寫加班的人員
+        let overtimeMemberName = '';
+        let overtimeType = '';
+        let overtimeTime = '';
+
+        if (record.fullDayOvertime) {
+            overtimeType = record.fullDayOvertime.type;
+
+            if (record.fullDayOvertime.type === '加整班' && record.fullDayOvertime.fullDayMember) {
+                overtimeMemberName = record.fullDayOvertime.fullDayMember.name;
+                overtimeTime = '全天';
+            } else if (record.fullDayOvertime.type === '加一半') {
+                if (record.fullDayOvertime.firstHalfMember) {
+                    overtimeMemberName = record.fullDayOvertime.firstHalfMember.name;
+                    overtimeTime = '前半天';
+                }
+                if (record.fullDayOvertime.secondHalfMember) {
+                    // 如果同時有前半和後半，需要分別通知
+                    if (overtimeMemberName) {
+                        // 先通知前半的人
+                        await sendSingleProxyOvertimeNotification(
+                            overtimeMemberName,
+                            proxyOvertimeInfo,
+                            record.date,
+                            '前半天',
+                            overtimeType
+                        );
+                    }
+                    // 然後通知後半的人
+                    overtimeMemberName = record.fullDayOvertime.secondHalfMember.name;
+                    overtimeTime = '後半天';
+                }
+            }
+        }
+
+        if (overtimeMemberName) {
+            await sendSingleProxyOvertimeNotification(
+                overtimeMemberName,
+                proxyOvertimeInfo,
+                record.date,
+                overtimeTime,
+                overtimeType
+            );
+        }
+
+    } catch (error) {
+        console.error('發送代理加班通知時發生錯誤:', error);
+        // 不拋出錯誤，避免影響加班記錄的創建
+    }
+}
+
+// 發送單個代理加班通知
+async function sendSingleProxyOvertimeNotification(
+    overtimeMemberName: string,
+    proxyOvertimeInfo: any,
+    date: string,
+    overtimeTime: string,
+    overtimeType: string
+) {
+    try {
+        const { sendProxyOvertimeNotification } = await import('@/services/lineBot');
+
+        await sendProxyOvertimeNotification(overtimeMemberName, {
+            proxyByName: proxyOvertimeInfo.proxyByName || '',
+            proxyByDisplayName: proxyOvertimeInfo.proxyByDisplayName || '',
+            targetMemberName: overtimeMemberName,
+            date,
+            overtimeTime,
+            overtimeType
+        });
+
+        console.log(`代理加班通知已發送給 ${overtimeMemberName}`);
+    } catch (error) {
+        console.error(`發送代理加班通知給 ${overtimeMemberName} 失敗:`, error);
+    }
 }

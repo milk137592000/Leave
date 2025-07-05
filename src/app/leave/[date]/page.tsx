@@ -248,6 +248,7 @@ const LeaveDatePage: React.FC = () => {
     const [expandedIndexes, setExpandedIndexes] = useState<{[key:number]: {leave: boolean, overtime: boolean}}>({});
     const [showLeaveForm, setShowLeaveForm] = useState(false);
     const [leaveType, setLeaveType] = useState<'self' | 'proxy'>('self');
+    const [overtimeType, setOvertimeType] = useState<'self' | 'proxy'>('self');
 
     const toggleExpand = (index: number, type: 'leave' | 'overtime') => {
         setExpandedIndexes(prev => ({
@@ -531,6 +532,33 @@ const LeaveDatePage: React.FC = () => {
                     <div className="space-y-2">
                         {/* 加班選項 */}
                         <div className="space-y-4">
+                            {/* 加班填寫類型選擇 */}
+                            <div className="flex items-center gap-4 mb-3">
+                                <span className="text-sm font-medium text-gray-700">加班填寫：</span>
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name={`overtimeType-${record._id}`}
+                                        value="self"
+                                        checked={overtimeType === 'self'}
+                                        onChange={() => setOvertimeType('self')}
+                                        className="mr-2"
+                                    />
+                                    本人加班
+                                </label>
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name={`overtimeType-${record._id}`}
+                                        value="proxy"
+                                        checked={overtimeType === 'proxy'}
+                                        onChange={() => setOvertimeType('proxy')}
+                                        className="mr-2"
+                                    />
+                                    替人填寫加班
+                                </label>
+                            </div>
+
                             {/* 加班類型選擇 */}
                             <div className="flex items-center gap-2">
                                 <select
@@ -1343,6 +1371,21 @@ const LeaveDatePage: React.FC = () => {
             return;
         }
 
+        // 驗證代理加班邏輯
+        if (overtimeType === 'self') {
+            // 本人加班：檢查是否為自己
+            if (memberName !== userProfile?.memberName) {
+                alert('本人加班時只能選擇自己');
+                return;
+            }
+        } else if (overtimeType === 'proxy') {
+            // 替人填寫加班：檢查不能為自己
+            if (memberName === userProfile?.memberName) {
+                alert('替人填寫加班時不能選擇自己');
+                return;
+            }
+        }
+
         const memberTeam = getMemberTeam(memberName);
         const bigRestTeam = getBigRestTeam();
         if (!memberTeam) {
@@ -1374,6 +1417,9 @@ const LeaveDatePage: React.FC = () => {
         }
 
         try {
+            // 檢查是否為代理加班
+            const isProxyOvertime = overtimeType === 'proxy' && memberName !== userProfile?.memberName;
+
             const response = await fetch('/api/leave', {
                 method: 'PUT',
                 headers: {
@@ -1382,7 +1428,9 @@ const LeaveDatePage: React.FC = () => {
                 body: JSON.stringify({
                     date: record.date,
                     name: record.name,
-                    fullDayOvertime: overtimeData
+                    fullDayOvertime: overtimeData,
+                    lineUserId: liffProfile?.userId,
+                    isProxyOvertimeRequest: isProxyOvertime
                 }),
             });
 
@@ -1893,32 +1941,53 @@ const LeaveDatePage: React.FC = () => {
 
                                 overtimePeople = (
                                     <>
-                                        <span>
+                                        <span className="flex flex-col items-center">
                                             {firstMissing ? (
                                                 <span><span className="text-xs">前{firstTeam}</span> <span className="text-red-500">缺</span></span>
                                             ) : (
-                                                <span>
-                                                    <span className="text-xs">前{firstTeam}</span> {first}
-                                                </span>
+                                                <>
+                                                    <span>
+                                                        <span className="text-xs">前{firstTeam}</span> {first}
+                                                    </span>
+                                                    {record.fullDayOvertime.firstHalfMember?.proxyRequest?.isProxy && (
+                                                        <span className="text-xs text-orange-600 mt-1">
+                                                            由 {record.fullDayOvertime.firstHalfMember.proxyRequest.proxyByName} 代填
+                                                        </span>
+                                                    )}
+                                                </>
                                             )}
                                         </span>
                                         <span className="mx-2" />
-                                        <span>
+                                        <span className="flex flex-col items-center">
                                             {secondMissing ? (
                                                 <span><span className="text-xs">後{secondTeam}</span> <span className="text-red-500">缺</span></span>
                                             ) : (
-                                                <span>
-                                                    <span className="text-xs">後{secondTeam}</span> {second}
-                                                </span>
+                                                <>
+                                                    <span>
+                                                        <span className="text-xs">後{secondTeam}</span> {second}
+                                                    </span>
+                                                    {record.fullDayOvertime.secondHalfMember?.proxyRequest?.isProxy && (
+                                                        <span className="text-xs text-orange-600 mt-1">
+                                                            由 {record.fullDayOvertime.secondHalfMember.proxyRequest.proxyByName} 代填
+                                                        </span>
+                                                    )}
+                                                </>
                                             )}
                                         </span>
                                     </>
                                 );
                             } else if (record.fullDayOvertime?.type === '加整班' && record.fullDayOvertime.fullDayMember) {
                                 overtimePeople = (
-                                    <span className="flex items-center justify-center">
-                                        <span>{record.fullDayOvertime.fullDayMember.name}</span>
-                                        <span className="text-xs ml-1">({record.fullDayOvertime.fullDayMember.team}班)</span>
+                                    <span className="flex flex-col items-center justify-center">
+                                        <span className="flex items-center">
+                                            <span>{record.fullDayOvertime.fullDayMember.name}</span>
+                                            <span className="text-xs ml-1">({record.fullDayOvertime.fullDayMember.team}班)</span>
+                                        </span>
+                                        {record.fullDayOvertime.fullDayMember.proxyRequest?.isProxy && (
+                                            <span className="text-xs text-orange-600 mt-1">
+                                                由 {record.fullDayOvertime.fullDayMember.proxyRequest.proxyByName} 代填
+                                            </span>
+                                        )}
                                     </span>
                                 );
                             } else if (record.fullDayOvertime?.type === '加整班') {

@@ -30,6 +30,29 @@ const OvertimeMemberSchema = new mongoose.Schema({
         type: Boolean,
         required: true,
         default: false
+    },
+    // 代理加班資訊
+    proxyRequest: {
+        type: {
+            isProxy: {
+                type: Boolean,
+                default: false
+            },
+            proxyByName: {
+                type: String,
+                required: false
+            },
+            proxyByLineUserId: {
+                type: String,
+                required: false
+            },
+            proxyByDisplayName: {
+                type: String,
+                required: false
+            }
+        },
+        required: false,
+        default: undefined
     }
 });
 
@@ -38,6 +61,12 @@ export interface OvertimeMember extends Document {
     name: string;
     team: string;
     confirmed: boolean;
+    proxyRequest?: {
+        isProxy: boolean;
+        proxyByName?: string;
+        proxyByLineUserId?: string;
+        proxyByDisplayName?: string;
+    };
 }
 
 // Define an interface for the FullDayOvertime document structure

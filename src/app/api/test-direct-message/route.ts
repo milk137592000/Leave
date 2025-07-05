@@ -1,6 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from '@line/bot-sdk';
 
+// 直接 LINE API 調用的備用方案
+async function sendLineMessageDirect(lineUserId: string, message: string): Promise<boolean> {
+    try {
+        const accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim();
+
+        if (!accessToken) {
+            console.error('❌ LINE_CHANNEL_ACCESS_TOKEN 未設定');
+            return false;
+        }
+
+        const response = await fetch('https://api.line.me/v2/bot/message/push', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+                to: lineUserId,
+                messages: [{
+                    type: 'text',
+                    text: message
+                }]
+            })
+        });
+
+        if (response.ok) {
+            console.log('✅ 直接 LINE API 調用成功');
+            return true;
+        } else {
+            const errorText = await response.text();
+            console.error('❌ 直接 LINE API 調用失敗:', response.status, errorText);
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ 直接 LINE API 調用異常:', error);
+        return false;
+    }
+}
+
 const client = new Client({
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
     channelSecret: process.env.LINE_CHANNEL_SECRET!,
@@ -22,19 +61,38 @@ export async function POST(request: NextRequest) {
         }
 
         console.log(`發送測試訊息給 ${lineUserId}: ${message}`);
+
+        // 首先嘗試使用 LINE SDK
+        let success = false;
+        let method = '';
+
+        try {
+            await client.pushMessage(lineUserId, {
+                type: 'text',
+                text: message
+            });
+            success = true;
+            method = 'SDK';
+            console.log('測試訊息發送成功 (使用 SDK)');
+        } catch (sdkError) {
+            console.warn('⚠️ LINE SDK 發送失敗，嘗試直接 API 調用:', sdkError);
+
+            // 備用方案：直接調用 LINE API
+            success = await sendLineMessageDirect(lineUserId, message);
+            if (success) {
+                method = '直接 API';
+                console.log('測試訊息發送成功 (使用直接 API)');
+            } else {
+                throw sdkError; // 如果直接 API 也失敗，拋出原始錯誤
+            }
+        }
         
-        await client.pushMessage(lineUserId, {
-            type: 'text',
-            text: message
-        });
-        
-        console.log('測試訊息發送成功');
-        
-        return NextResponse.json({ 
-            success: true, 
-            message: '訊息發送成功',
+        return NextResponse.json({
+            success: true,
+            message: `訊息發送成功 (使用 ${method})`,
             lineUserId,
-            sentMessage: message
+            sentMessage: message,
+            method
         });
         
     } catch (error) {

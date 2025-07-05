@@ -1,13 +1,93 @@
-import { Client, Message, TextMessage, FlexMessage, QuickReply, QuickReplyItem, PostbackAction } from '@line/bot-sdk';
+import { Client, Message, TextMessage, FlexMessage, QuickReply, QuickReplyItem, PostbackAction, ClientConfig } from '@line/bot-sdk';
 
-// LINE Bot 客戶端配置
-const config = {
-    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
-    channelSecret: process.env.LINE_CHANNEL_SECRET || '',
-};
+// 直接 LINE API 調用的備用方案
+async function sendLineMessageDirect(lineUserId: string, message: string): Promise<boolean> {
+    try {
+        const accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim();
 
-// 創建 LINE Bot 客戶端
-const client = new Client(config);
+        if (!accessToken) {
+            console.error('❌ LINE_CHANNEL_ACCESS_TOKEN 未設定');
+            return false;
+        }
+
+        const response = await fetch('https://api.line.me/v2/bot/message/push', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+                to: lineUserId,
+                messages: [{
+                    type: 'text',
+                    text: message
+                }]
+            })
+        });
+
+        if (response.ok) {
+            console.log('✅ 直接 LINE API 調用成功');
+            return true;
+        } else {
+            const errorText = await response.text();
+            console.error('❌ 直接 LINE API 調用失敗:', response.status, errorText);
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ 直接 LINE API 調用異常:', error);
+        return false;
+    }
+}
+
+// 安全的 LINE Bot 客戶端配置
+function createSafeLineConfig(): ClientConfig {
+    const accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim() || '';
+    const channelSecret = process.env.LINE_CHANNEL_SECRET?.trim() || '';
+
+    return {
+        channelAccessToken: accessToken,
+        channelSecret: channelSecret,
+    };
+}
+
+// 驗證 LINE Bot 配置
+export function validateLineConfig(): boolean {
+    const config = createSafeLineConfig();
+    const hasAccessToken = !!config.channelAccessToken;
+    const hasChannelSecret = !!config.channelSecret;
+
+    if (!hasAccessToken) {
+        console.error('❌ LINE_CHANNEL_ACCESS_TOKEN 未設定');
+        return false;
+    }
+
+    if (!hasChannelSecret) {
+        console.error('❌ LINE_CHANNEL_SECRET 未設定');
+        return false;
+    }
+
+    // 檢查 token 格式
+    if (config.channelAccessToken.length < 50) {
+        console.error('❌ LINE_CHANNEL_ACCESS_TOKEN 格式可能不正確（長度太短）');
+        return false;
+    }
+
+    console.log('✅ LINE Bot 配置驗證通過');
+    return true;
+}
+
+// 創建 LINE Bot 客戶端（延遲初始化以避免 token 問題）
+function createLineClient(): Client {
+    const config = createSafeLineConfig();
+
+    // 記錄配置資訊（不洩露完整 token）
+    console.log(`🔧 創建 LINE Client - Token 長度: ${config.channelAccessToken.length}`);
+
+    return new Client(config);
+}
+
+// 為了向後兼容，保留一個預設客戶端
+const client = createLineClient();
 
 export interface OvertimeNotification {
     requesterName: string;
@@ -35,6 +115,15 @@ export interface ProxyCancelNotification {
     reason?: string;
 }
 
+export interface ProxyOvertimeNotification {
+    proxyByName: string;
+    proxyByDisplayName: string;
+    targetMemberName: string;
+    date: string;
+    overtimeTime: string;
+    overtimeType: string;
+}
+
 /**
  * 發送加班通知給指定的 LINE 用戶
  */
@@ -48,9 +137,24 @@ export async function sendOvertimeNotification(
             text: createOvertimeMessage(notification)
         };
 
-        await client.pushMessage(lineUserId, message);
-        console.log(`加班通知已發送給用戶: ${lineUserId}`);
-        return true;
+        // 首先嘗試使用 LINE SDK
+        try {
+            const client = createLineClient();
+            await client.pushMessage(lineUserId, message);
+            console.log(`加班通知已發送給用戶: ${lineUserId} (使用 SDK)`);
+            return true;
+        } catch (sdkError) {
+            console.warn(`⚠️ LINE SDK 發送失敗，嘗試直接 API 調用:`, sdkError);
+
+            // 備用方案：直接調用 LINE API
+            const directSuccess = await sendLineMessageDirect(lineUserId, message.text);
+            if (directSuccess) {
+                console.log(`加班通知已發送給用戶: ${lineUserId} (使用直接 API)`);
+                return true;
+            } else {
+                throw sdkError; // 如果直接 API 也失敗，拋出原始錯誤
+            }
+        }
     } catch (error) {
         console.error('發送 LINE 訊息失敗:', error);
         return false;
@@ -116,8 +220,22 @@ export async function sendTestMessage(lineUserId: string): Promise<boolean> {
             text: '🎉 LINE 連動測試成功！\n您已成功設定身份，將會收到相關的加班通知。'
         };
 
-        await client.pushMessage(lineUserId, message);
-        return true;
+        // 首先嘗試使用 LINE SDK
+        try {
+            const client = createLineClient();
+            await client.pushMessage(lineUserId, message);
+            return true;
+        } catch (sdkError) {
+            console.warn(`⚠️ LINE SDK 發送失敗，嘗試直接 API 調用:`, sdkError);
+
+            // 備用方案：直接調用 LINE API
+            const directSuccess = await sendLineMessageDirect(lineUserId, message.text);
+            if (directSuccess) {
+                return true;
+            } else {
+                throw sdkError; // 如果直接 API 也失敗，拋出原始錯誤
+            }
+        }
     } catch (error) {
         console.error('發送測試訊息失敗:', error);
         return false;
@@ -249,6 +367,7 @@ export async function sendNameSelectionMessage(lineUserId: string): Promise<bool
             quickReply: createNameSelectionQuickReply()
         };
 
+        const client = createLineClient();
         await client.pushMessage(lineUserId, message);
 
         // 設置用戶狀態
@@ -275,6 +394,7 @@ export async function handleNameSelection(lineUserId: string, selectedName: stri
                 text: `抱歉，找不到名稱「${selectedName}」在輪值表中。請重新選擇。`,
                 quickReply: createNameSelectionQuickReply()
             };
+            const client = createLineClient();
             await client.pushMessage(lineUserId, message);
             return false;
         }
@@ -293,6 +413,7 @@ export async function handleNameSelection(lineUserId: string, selectedName: stri
             text: `✅ 已選擇：${selectedName} (${team}班 ${role})\n\n您現在會收到相關的加班通知。如需重新選擇，請輸入「重新選擇」。`
         };
 
+        const client = createLineClient();
         await client.pushMessage(lineUserId, confirmMessage);
 
         // 檢查是否有當前的加班機會
@@ -489,6 +610,7 @@ async function sendOvertimeOpportunityNotification(
             text: messageText
         };
 
+        const client = createLineClient();
         await client.pushMessage(lineUserId, message);
 
     } catch (error) {
@@ -510,6 +632,20 @@ export async function sendOvertimeCancelledNotification(
     }
 ): Promise<boolean> {
     try {
+        console.log(`🔔 準備發送取消通知給 ${memberName} (${lineUserId})`);
+
+        // 驗證 LINE Bot 配置
+        if (!validateLineConfig()) {
+            console.error('❌ LINE Bot 配置無效，跳過發送');
+            return false;
+        }
+
+        // 驗證 lineUserId 格式
+        if (!lineUserId || !lineUserId.startsWith('U')) {
+            console.error(`❌ 無效的 LINE User ID: ${lineUserId}`);
+            return false;
+        }
+
         // 根據取消原因判斷是加班機會取消還是請假取消
         const isLeaveCancel = cancelledOpportunity.reason.includes('請假') ||
                              cancelledOpportunity.reason.includes('刪除') ||
@@ -525,10 +661,46 @@ export async function sendOvertimeCancelledNotification(
             text: `${title}\n\n📅 日期：${cancelledOpportunity.date}\n👤 人員：${cancelledOpportunity.requesterTeam}班 ${cancelledOpportunity.requesterName}\n📝 說明：${cancelledOpportunity.reason}\n\n${isLeaveCancel ? '原本的加班需求也一併取消。' : '感謝您的關注！'}`
         };
 
-        await client.pushMessage(lineUserId, message);
-        return true;
+        console.log(`📤 發送訊息內容: ${message.text.substring(0, 100)}...`);
+
+        // 首先嘗試使用 LINE SDK
+        try {
+            const client = createLineClient();
+            await client.pushMessage(lineUserId, message);
+            console.log(`✅ 取消通知發送成功給 ${memberName} (使用 SDK)`);
+            return true;
+        } catch (sdkError) {
+            console.warn(`⚠️ LINE SDK 發送失敗，嘗試直接 API 調用:`, sdkError);
+
+            // 備用方案：直接調用 LINE API
+            const directSuccess = await sendLineMessageDirect(lineUserId, message.text);
+            if (directSuccess) {
+                console.log(`✅ 取消通知發送成功給 ${memberName} (使用直接 API)`);
+                return true;
+            } else {
+                throw sdkError; // 如果直接 API 也失敗，拋出原始錯誤
+            }
+        }
     } catch (error) {
-        console.error('發送取消通知失敗:', error);
+        console.error(`❌ 發送取消通知給 ${memberName} (${lineUserId}) 失敗:`, error);
+
+        // 詳細錯誤資訊
+        if (error && typeof error === 'object' && 'response' in error) {
+            const lineError = error as any;
+            console.error('LINE API 錯誤詳情:', {
+                status: lineError.response?.status,
+                statusText: lineError.response?.statusText,
+                data: lineError.response?.data
+            });
+        }
+
+        // 檢查是否是 Authorization header 問題
+        if (error instanceof Error && error.message.includes('Invalid character in header')) {
+            console.error('🚨 這是 LINE Channel Access Token 的格式問題！');
+            console.error('💡 請檢查 LINE_CHANNEL_ACCESS_TOKEN 是否包含特殊字符');
+            console.error('💡 Token 預覽:', config.channelAccessToken.substring(0, 20) + '...');
+        }
+
         return false;
     }
 }
@@ -597,14 +769,17 @@ export async function sendOvertimeCancelledNotificationExcluding(
         console.log(`合併後總用戶數: ${userList.length} 人`);
 
         for (const user of userList) {
+            console.log(`🔄 處理用戶: ${user.name} (${user.team}班, ${user.lineUserId})`);
+
             // 檢查是否需要排除此用戶
             if (excludeNames.includes(user.name)) {
                 excludedCount++;
-                console.log(`排除通知用戶: ${user.name} (${user.team}班)`);
+                console.log(`⏭️  排除通知用戶: ${user.name} (${user.team}班)`);
                 continue;
             }
 
             try {
+                console.log(`📤 嘗試發送通知給 ${user.name}...`);
                 const success = await sendOvertimeCancelledNotification(
                     user.lineUserId,
                     user.name,
@@ -613,11 +788,13 @@ export async function sendOvertimeCancelledNotificationExcluding(
 
                 if (success) {
                     successCount++;
+                    console.log(`✅ 通知發送成功: ${user.name}`);
                 } else {
                     failedCount++;
+                    console.log(`❌ 通知發送失敗: ${user.name}`);
                 }
             } catch (error) {
-                console.error(`發送通知給 ${user.name} 失敗:`, error);
+                console.error(`💥 發送通知給 ${user.name} 時發生異常:`, error);
                 failedCount++;
             }
         }
@@ -1196,4 +1373,79 @@ async function checkOvertimeEligibilityInternal(
  */
 export function validateLineConfig(): boolean {
     return !!(config.channelAccessToken && config.channelSecret);
+}
+
+/**
+ * 發送代理加班通知給被填寫加班的人
+ */
+export async function sendProxyOvertimeNotification(
+    targetMemberName: string,
+    notification: ProxyOvertimeNotification
+): Promise<boolean> {
+    try {
+        // 根據成員名稱查找對應的 LINE 用戶
+        const connectDB = (await import('@/lib/mongodb')).default;
+        const UserProfile = (await import('@/models/UserProfile')).default;
+
+        await connectDB();
+
+        const userProfile = await UserProfile.findOne({ memberName: targetMemberName });
+
+        if (!userProfile) {
+            console.log(`找不到成員 ${targetMemberName} 的 LINE 綁定資訊`);
+            return false;
+        }
+
+        const message: TextMessage = {
+            type: 'text',
+            text: createProxyOvertimeMessage(notification)
+        };
+
+        // 首先嘗試使用 LINE SDK
+        try {
+            const client = createLineClient();
+            await client.pushMessage(userProfile.lineUserId, message);
+            console.log(`✅ 代理加班通知發送成功給 ${targetMemberName} (使用 SDK)`);
+            return true;
+        } catch (sdkError) {
+            console.warn(`⚠️ LINE SDK 發送失敗，嘗試直接 API 調用:`, sdkError);
+
+            // 備用方案：直接調用 LINE API
+            const directSuccess = await sendLineMessageDirect(userProfile.lineUserId, message.text);
+            if (directSuccess) {
+                console.log(`✅ 代理加班通知發送成功給 ${targetMemberName} (使用直接 API)`);
+                return true;
+            } else {
+                throw sdkError; // 如果直接 API 也失敗，拋出原始錯誤
+            }
+        }
+    } catch (error) {
+        console.error(`❌ 發送代理加班通知給 ${targetMemberName} 失敗:`, error);
+        return false;
+    }
+}
+
+/**
+ * 創建代理加班通知訊息
+ */
+function createProxyOvertimeMessage(notification: ProxyOvertimeNotification): string {
+    const { proxyByName, proxyByDisplayName, targetMemberName, date, overtimeTime, overtimeType } = notification;
+
+    const formattedDate = new Date(date).toLocaleDateString('zh-TW', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+    });
+
+    return `🔔 代理加班通知
+
+${proxyByName} (${proxyByDisplayName}) 已為您填寫加班：
+
+📅 日期：${formattedDate}
+⏰ 時段：${overtimeTime}
+💼 類型：${overtimeType}
+👤 加班人：${targetMemberName}
+
+如有疑問，請聯繫 ${proxyByName}。`;
 }
