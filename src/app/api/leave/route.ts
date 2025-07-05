@@ -292,6 +292,16 @@ export async function POST(request: Request) {
                     }
                 }
             }
+
+            // 如果沒有任何加班設定，自動設定為需要加班（加一半）
+            if (!leaveRecordData.fullDayOvertime) {
+                leaveRecordData.fullDayOvertime = {
+                    type: '加一半',
+                    firstHalfMember: undefined,
+                    secondHalfMember: undefined
+                };
+                console.log('自動設定全天請假需要加班（加一半）');
+            }
         } else if (period.type === 'custom') {
             // 處理自定義時段請假
             if (customOvertime) {
@@ -442,7 +452,7 @@ async function updateOvertime(
 export async function DELETE(request: Request) {
     try {
         const body = await request.json();
-        const { date, name } = body;
+        const { date, name, cancelledByName, cancelledByDisplayName, reason } = body;
 
         if (!date || !name) {
             return NextResponse.json(
@@ -456,21 +466,41 @@ export async function DELETE(request: Request) {
         // 查找請假記錄（在刪除前獲取資訊用於通知）
         const recordToDelete = await LeaveRecordModel.findOne({ date, name });
 
-        // 刪除請假記錄
-        const result = await LeaveRecordModel.deleteOne({ date, name });
-
-        if (result.deletedCount === 0) {
+        if (!recordToDelete) {
             return NextResponse.json(
                 { error: '找不到要刪除的請假記錄' },
                 { status: 404 }
             );
         }
 
+        // 刪除請假記錄
+        const result = await LeaveRecordModel.deleteOne({ date, name });
+
+        if (result.deletedCount === 0) {
+            return NextResponse.json(
+                { error: '刪除請假記錄失敗' },
+                { status: 500 }
+            );
+        }
+
+        // 如果是代理取消請假，發送通知給被取消請假的人
+        if (cancelledByName && cancelledByDisplayName && cancelledByName !== name) {
+            const { sendProxyCancelNotification } = await import('@/services/lineBot');
+            await sendProxyCancelNotification(name, {
+                cancelledByName,
+                cancelledByDisplayName,
+                targetMemberName: name,
+                date,
+                period: recordToDelete.period,
+                reason: reason || '請假已取消'
+            });
+        }
+
         // 如果有加班需求，發送取消通知（排除原請假人）
         if (recordToDelete && (recordToDelete.fullDayOvertime || recordToDelete.customOvertime)) {
             await sendLineOvertimeCancelledNotificationWithExclusion(
                 recordToDelete,
-                '請假記錄已刪除',
+                reason || '請假記錄已刪除',
                 [recordToDelete.name] // 排除原請假人
             );
         }
