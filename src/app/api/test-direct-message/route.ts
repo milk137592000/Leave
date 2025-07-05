@@ -7,8 +7,12 @@ const client = new Client({
 });
 
 export async function POST(request: NextRequest) {
+    let lineUserId: string | undefined;
+
     try {
-        const { lineUserId, message } = await request.json();
+        const requestBody = await request.json();
+        lineUserId = requestBody.lineUserId;
+        const message = requestBody.message;
         
         if (!lineUserId || !message) {
             return NextResponse.json(
@@ -37,7 +41,7 @@ export async function POST(request: NextRequest) {
         console.error('發送測試訊息失敗:', error);
 
         // 詳細的錯誤信息
-        let errorDetails = {
+        let errorDetails: any = {
             message: error instanceof Error ? error.message : '未知錯誤',
             name: error instanceof Error ? error.name : 'UnknownError',
             stack: error instanceof Error ? error.stack : undefined
