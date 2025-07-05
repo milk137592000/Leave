@@ -24,6 +24,22 @@ interface DebugInfo {
         pictureUrl?: string;
     };
     profileError?: string;
+    // OAuth 相關
+    isOAuthCallback?: boolean;
+    oauthCode?: string | null;
+    oauthState?: string | null;
+    liffClientId?: string | null;
+    liffRedirectUri?: string | null;
+    localStorage?: {
+        hasCodeVerifier: boolean;
+        hasState: boolean;
+        liffKeys: string[];
+    };
+    sessionStorage?: {
+        hasCodeVerifier: boolean;
+        hasState: boolean;
+        liffKeys: string[];
+    };
 }
 
 export default function LiffDebugPage() {
@@ -37,6 +53,7 @@ export default function LiffDebugPage() {
         }
 
         const checkLiffStatus = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
             const info: DebugInfo = {
                 timestamp: new Date().toISOString(),
                 userAgent: navigator.userAgent,
@@ -52,7 +69,24 @@ export default function LiffDebugPage() {
                 liffSdkLoaded: false,
                 liffInitialized: false,
                 liffLoggedIn: false,
-                liffError: null
+                liffError: null,
+                // OAuth 相關資訊
+                isOAuthCallback: urlParams.has('code') && urlParams.has('state'),
+                oauthCode: urlParams.get('code'),
+                oauthState: urlParams.get('state'),
+                liffClientId: urlParams.get('liffClientId'),
+                liffRedirectUri: urlParams.get('liffRedirectUri'),
+                // 儲存狀態檢查
+                localStorage: {
+                    hasCodeVerifier: !!localStorage.getItem('liff_code_verifier'),
+                    hasState: !!localStorage.getItem('liff_state'),
+                    liffKeys: Object.keys(localStorage).filter(key => key.includes('liff'))
+                },
+                sessionStorage: {
+                    hasCodeVerifier: !!sessionStorage.getItem('liff_code_verifier'),
+                    hasState: !!sessionStorage.getItem('liff_state'),
+                    liffKeys: Object.keys(sessionStorage).filter(key => key.includes('liff'))
+                }
             };
 
             // 檢查是否在 LINE 中

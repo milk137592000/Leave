@@ -53,9 +53,23 @@ export default function LineSetupPage() {
         }
 
         try {
+            // 檢查是否為 OAuth 回調
+            const urlParams = new URLSearchParams(window.location.search);
+            const isOAuthCallback = urlParams.has('code') && urlParams.has('state');
+
+            console.log('=== LIFF 初始化開始 ===');
+            console.log('是否為 OAuth 回調:', isOAuthCallback);
+            if (isOAuthCallback) {
+                console.log('檢測到 OAuth 回調參數:', {
+                    code: urlParams.get('code'),
+                    state: urlParams.get('state'),
+                    liffClientId: urlParams.get('liffClientId'),
+                    liffRedirectUri: urlParams.get('liffRedirectUri')
+                });
+            }
+
             // 強制使用硬編碼 LIFF ID，完全不依賴環境變數
             const liffId = '2007680034-QnRpBayW';
-            console.log('=== LIFF 初始化開始 ===');
             console.log('強制使用硬編碼 LIFF ID:', liffId);
             console.log('LIFF ID 長度:', liffId.length);
             console.log('LIFF ID 類型:', typeof liffId);
@@ -68,18 +82,28 @@ export default function LineSetupPage() {
 
             // 檢查是否已經載入 LIFF SDK
             if (window.liff) {
-                console.log('LIFF SDK 已存在，直接初始化');
+                console.log('LIFF SDK 已存在，檢查初始化狀態');
                 try {
                     // 檢查 LIFF 是否已經初始化
-                    console.log('檢查 LIFF 初始化狀態...');
-                    console.log('window.liff.isInClient 類型:', typeof window.liff.isInClient);
+                    const isAlreadyInitialized = typeof window.liff.isInClient === 'function';
+                    console.log('LIFF 是否已初始化:', isAlreadyInitialized);
 
-                    // 強制初始化，即使可能已經初始化過
-                    console.log('強制初始化 LIFF，參數:', JSON.stringify({ liffId }));
-                    await window.liff.init({ liffId: liffId });
-                    console.log('✅ LIFF 初始化成功');
+                    if (!isAlreadyInitialized) {
+                        // 只有在未初始化時才初始化
+                        console.log('初始化 LIFF，參數:', JSON.stringify({ liffId }));
+                        await window.liff.init({ liffId: liffId });
+                        console.log('✅ LIFF 初始化成功');
+                    } else {
+                        console.log('LIFF 已經初始化，跳過初始化步驟');
+                    }
 
                     setIsLiffReady(true);
+
+                    // 如果是 OAuth 回調，等待一下讓 LIFF 處理回調
+                    if (isOAuthCallback) {
+                        console.log('等待 LIFF 處理 OAuth 回調...');
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
 
                     // 安全檢查登入狀態
                     try {
@@ -102,7 +126,9 @@ export default function LineSetupPage() {
                         message: error instanceof Error ? error.message : String(error),
                         stack: error instanceof Error ? error.stack : undefined,
                         liffId: liffId,
-                        liffIdType: typeof liffId
+                        liffIdType: typeof liffId,
+                        isOAuthCallback: isOAuthCallback,
+                        currentUrl: window.location.href
                     });
                     setError(`LIFF 初始化失敗: ${error instanceof Error ? error.message : String(error)}`);
                 }
@@ -115,18 +141,22 @@ export default function LineSetupPage() {
             script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
             script.onload = async () => {
                 try {
-                    console.log('LIFF SDK 載入成功，檢查初始化狀態...');
+                    console.log('LIFF SDK 載入成功，開始初始化...');
                     console.log('window.liff 物件:', window.liff);
                     console.log('window.liff.init 函數:', typeof window.liff.init);
 
-                    // 強制重新初始化，不檢查是否已初始化
-                    console.log('開始初始化 LIFF...');
+                    // 初始化 LIFF
                     console.log('調用 liff.init，參數:', JSON.stringify({ liffId }));
-
                     await window.liff.init({ liffId: liffId });
                     console.log('✅ LIFF 初始化成功');
 
                     setIsLiffReady(true);
+
+                    // 如果是 OAuth 回調，等待一下讓 LIFF 處理回調
+                    if (isOAuthCallback) {
+                        console.log('等待 LIFF 處理 OAuth 回調...');
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
 
                     // 安全檢查登入狀態
                     try {
@@ -146,6 +176,13 @@ export default function LineSetupPage() {
                     }
                 } catch (error) {
                     console.error('LIFF 初始化失敗:', error);
+                    console.error('錯誤詳情:', {
+                        message: error instanceof Error ? error.message : String(error),
+                        stack: error instanceof Error ? error.stack : undefined,
+                        liffId: liffId,
+                        isOAuthCallback: isOAuthCallback,
+                        currentUrl: window.location.href
+                    });
                     setError(`LIFF 初始化失敗: ${error instanceof Error ? error.message : String(error)}`);
                 }
             };
@@ -251,8 +288,14 @@ export default function LineSetupPage() {
                             <p className="text-red-600 text-sm mb-4">{error}</p>
                             <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
                                 <p>調試資訊：</p>
-                                <p>LIFF ID: {process.env.NEXT_PUBLIC_LIFF_ID || '未設定'}</p>
+                                <p>LIFF ID: {process.env.NEXT_PUBLIC_LIFF_ID || '2007680034-QnRpBayW'}</p>
                                 <p>當前網址: {typeof window !== 'undefined' ? window.location.href : 'N/A'}</p>
+                                {typeof window !== 'undefined' && (
+                                    <>
+                                        <p>是否為 OAuth 回調: {new URLSearchParams(window.location.search).has('code') ? '是' : '否'}</p>
+                                        <p>URL 參數: {window.location.search}</p>
+                                    </>
+                                )}
                             </div>
                             <button
                                 onClick={() => {
