@@ -24,6 +24,25 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+
+        // 檢查禮拜二大休班級限制
+        const isTuesday = new Date(date).getDay() === 2; // 0=週日, 1=週一, 2=週二...
+        if (isTuesday) {
+            // 檢查建議班級是否為大休
+            const { getShiftForDate } = await import('@/utils/schedule');
+            const suggestedTeamShift = getShiftForDate(new Date(date), suggestedTeam);
+
+            if (suggestedTeamShift === '大休') {
+                console.log(`⚠️  禮拜二限制：${suggestedTeam}班大休不得加班 (${date})`);
+                return NextResponse.json({
+                    success: true,
+                    message: '禮拜二大休班級不得加班，跳過通知',
+                    notified: 0,
+                    skipped: true,
+                    reason: '禮拜二大休班級限制'
+                });
+            }
+        }
         
         // 查找建議班級的所有成員
         const targetUsers = await UserProfile.find({

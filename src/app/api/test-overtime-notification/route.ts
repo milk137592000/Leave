@@ -176,12 +176,18 @@ async function checkOvertimeEligibilityInternal(
         const { getShiftForDate } = await import('@/utils/schedule');
         const memberShift = getShiftForDate(new Date(date), memberTeam);
         
-        // 大休班級優先有加班資格
+        // 大休班級優先有加班資格（但禮拜二除外）
         if (memberShift === '大休') {
-            return {
-                eligible: true,
-                reason: `您的${memberTeam}班當天大休，可協助${requesterTeam}班加班`
-            };
+            const isTuesday = new Date(date).getDay() === 2; // 0=週日, 1=週一, 2=週二...
+            if (!isTuesday) {
+                return {
+                    eligible: true,
+                    reason: `您的${memberTeam}班當天大休，可協助${requesterTeam}班加班`
+                };
+            } else {
+                console.log(`⚠️  禮拜二限制：${memberTeam}班大休不得加班 (${date})`);
+                return { eligible: false };
+            }
         }
         
         // 小休班級也可能有加班資格
