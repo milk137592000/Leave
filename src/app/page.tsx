@@ -92,6 +92,17 @@ export default function Home() {
     ) : [];
 
     const handleToggleLeave = (date: Date) => {
+        // 檢查是否為過去日期（今天以前，今天可以操作）
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const selectedDate = new Date(date);
+        selectedDate.setHours(0, 0, 0, 0);
+
+        if (selectedDate < today) {
+            alert('無法操作今天以前的日期');
+            return;
+        }
+
         const dateStr = format(date, 'yyyy-MM-dd');
         router.push(`/leave/${dateStr}`);
     };

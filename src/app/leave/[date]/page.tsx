@@ -422,7 +422,7 @@ const LeaveDatePage: React.FC = () => {
                                         onChange={(e) => handleOvertimeMemberChange(record, e.target.value, 'first')}
                                         onClick={(e) => e.stopPropagation()}
                                         className={"w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 " + (selectClassName || "")}
-                                        disabled={record.fullDayOvertime?.firstHalfMember?.confirmed}
+                                        disabled={isPastDate() || record.fullDayOvertime?.firstHalfMember?.confirmed}
                                     >
                                         <option value="">請選擇加前半人員</option>
                                         {(getAvailableOvertimeMembers(record, 'first') || []).map(member => (
@@ -432,7 +432,7 @@ const LeaveDatePage: React.FC = () => {
                                         ))}
                                     </select>
                                     
-                                    {record.fullDayOvertime?.firstHalfMember?.name && !record.fullDayOvertime?.firstHalfMember?.confirmed && (
+                                    {record.fullDayOvertime?.firstHalfMember?.name && !record.fullDayOvertime?.firstHalfMember?.confirmed && !isPastDate() && (
                                         <div className="flex flex-row gap-2 mt-2">
                                             <button
                                                 onClick={() => handleUpdateOvertimeConfirm(record, true, "first")}
@@ -479,6 +479,7 @@ const LeaveDatePage: React.FC = () => {
                                         onChange={(e) => handleOvertimeMemberChange(record, e.target.value, 'second')}
                                         onClick={(e) => e.stopPropagation()}
                                         className={"w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 " + (selectClassName || "")}
+                                        disabled={isPastDate() || record.fullDayOvertime?.secondHalfMember?.confirmed}
                                     >
                                         <option value="">請選擇加後半人員</option>
                                         {(getAvailableOvertimeMembers(record, 'second') || []).map(member => (
@@ -488,7 +489,7 @@ const LeaveDatePage: React.FC = () => {
                                         ))}
                                     </select>
                                     
-                                    {record.fullDayOvertime?.secondHalfMember?.name && !record.fullDayOvertime?.secondHalfMember?.confirmed && (
+                                    {record.fullDayOvertime?.secondHalfMember?.name && !record.fullDayOvertime?.secondHalfMember?.confirmed && !isPastDate() && (
                                         <div className="flex flex-row gap-2 mt-2">
                                             <button
                                                 onClick={() => handleUpdateOvertimeConfirm(record, true, "second")}
@@ -568,7 +569,7 @@ const LeaveDatePage: React.FC = () => {
                                     }}
                                     onClick={(e) => e.stopPropagation()}
                                     className={"flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 " + (selectClassName || "")}
-                                    disabled={!!(record.fullDayOvertime?.fullDayMember?.confirmed ||
+                                    disabled={isPastDate() || !!(record.fullDayOvertime?.fullDayMember?.confirmed ||
                                         (record.fullDayOvertime?.type === '加一半' &&
                                             record.fullDayOvertime?.firstHalfMember?.confirmed &&
                                             record.fullDayOvertime?.secondHalfMember?.confirmed))}
@@ -598,7 +599,7 @@ const LeaveDatePage: React.FC = () => {
                                                 onChange={(e) => handleOvertimeMemberChange(record, e.target.value)}
                                                 onClick={(e) => e.stopPropagation()}
                                                 className={"w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 " + (selectClassName || "")}
-                                                disabled={record.fullDayOvertime?.fullDayMember?.confirmed}
+                                                disabled={isPastDate() || record.fullDayOvertime?.fullDayMember?.confirmed}
                                             >
                                                 <option value="">請選擇加班人員</option>
                                                 {(getAvailableOvertimeMembers(record) || []).map(member => (
@@ -611,7 +612,7 @@ const LeaveDatePage: React.FC = () => {
 
                                         {((overtimeType === 'self' && userProfile?.memberName) ||
                                           (overtimeType === 'proxy' && (overtimeStates[record._id || '']?.selectedMember || record.fullDayOvertime?.fullDayMember?.name))) &&
-                                          !record.fullDayOvertime?.fullDayMember?.confirmed && (
+                                          !record.fullDayOvertime?.fullDayMember?.confirmed && !isPastDate() && (
                                             <button
                                                 onClick={() => {
                                                     const memberName = overtimeType === 'self' ? userProfile?.memberName :
@@ -679,7 +680,7 @@ const LeaveDatePage: React.FC = () => {
                                                     onChange={(e) => handleOvertimeMemberChange(record, e.target.value, 'first')}
                                                     onClick={(e) => e.stopPropagation()}
                                                     className={"w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 " + (selectClassName || "")}
-                                                    disabled={record.fullDayOvertime?.firstHalfMember?.confirmed}
+                                                    disabled={isPastDate() || record.fullDayOvertime?.firstHalfMember?.confirmed}
                                                 >
                                                     <option value="">請選擇加前半人員</option>
                                                     {(getAvailableOvertimeMembers(record, 'first') || []).map(member => (
@@ -692,7 +693,7 @@ const LeaveDatePage: React.FC = () => {
 
                                             {((overtimeType === 'self' && userProfile?.memberName) ||
                                               (overtimeType === 'proxy' && record.fullDayOvertime?.firstHalfMember?.name)) &&
-                                              !record.fullDayOvertime?.firstHalfMember?.confirmed && (
+                                              !record.fullDayOvertime?.firstHalfMember?.confirmed && !isPastDate() && (
                                                 <div className="flex flex-row gap-2 mt-2">
                                                     <button
                                                         onClick={() => {
@@ -749,7 +750,7 @@ const LeaveDatePage: React.FC = () => {
                                                     onChange={(e) => handleOvertimeMemberChange(record, e.target.value, 'second')}
                                                     onClick={(e) => e.stopPropagation()}
                                                     className={"w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 " + (selectClassName || "")}
-                                                    disabled={record.fullDayOvertime?.secondHalfMember?.confirmed}
+                                                    disabled={isPastDate() || record.fullDayOvertime?.secondHalfMember?.confirmed}
                                                 >
                                                     <option value="">請選擇加後半人員</option>
                                                     {(getAvailableOvertimeMembers(record, 'second') || []).map(member => (
@@ -762,7 +763,7 @@ const LeaveDatePage: React.FC = () => {
 
                                             {((overtimeType === 'self' && userProfile?.memberName) ||
                                               (overtimeType === 'proxy' && record.fullDayOvertime?.secondHalfMember?.name)) &&
-                                              !record.fullDayOvertime?.secondHalfMember?.confirmed && (
+                                              !record.fullDayOvertime?.secondHalfMember?.confirmed && !isPastDate() && (
                                                 <div className="flex flex-row gap-2 mt-2">
                                                     <button
                                                         onClick={() => {
@@ -846,6 +847,11 @@ const LeaveDatePage: React.FC = () => {
 
         // 處理確認加班
         const handleConfirmOvertime = async () => {
+            if (isPastDate()) {
+                alert('無法為過去日期確認加班');
+                return;
+            }
+
             if (!selectedMember) {
                 alert('請選擇加班人員');
                 return;
@@ -1072,14 +1078,14 @@ const LeaveDatePage: React.FC = () => {
         return endTime > startTime;
     };
 
-    // 檢查日期是否不晚於今天
-    const isNotFutureDate = () => {
+    // 檢查日期是否為過去日期（今天以前，今天不算過去）
+    const isPastDate = () => {
         const today = startOfDay(new Date());
         const selectedDate = startOfDay(new Date(date));
         return isAfter(today, selectedDate);
     };
 
-    // 檢查日期是否為今天或以後
+    // 檢查日期是否為今天或未來日期
     const isTodayOrFuture = () => {
         const today = startOfDay(new Date());
         const selectedDate = startOfDay(new Date(date));
@@ -1139,7 +1145,7 @@ const LeaveDatePage: React.FC = () => {
 
     // 檢查是否可以請假
     const canTakeLeave = (team: string, memberName: string) => {
-        // 允許今天和未來請假
+        // 允許今天和未來日期請假（今天以前不可請假）
         if (!isTodayOrFuture()) {
             return false;
         }
@@ -1281,6 +1287,12 @@ const LeaveDatePage: React.FC = () => {
 
     // 處理提交請假
     const handleSubmit = async () => {
+        // 檢查日期是否為過去日期
+        if (isPastDate()) {
+            alert('無法為過去日期請假');
+            return;
+        }
+
         // 檢查身份驗證
         if (!isLoggedIn || !userProfile) {
             alert('請先登入 LINE 並設定身份');
@@ -1380,6 +1392,11 @@ const LeaveDatePage: React.FC = () => {
 
     // 更新加班類型
     const handleOvertimeTypeChange = async (record: LeaveRecordType, type: OvertimeType | '') => {
+        if (isPastDate()) {
+            alert('無法為過去日期設定加班類型');
+            return;
+        }
+
         // 首先更新本地状态
         setOvertimeStates(prev => ({
             ...prev,
@@ -1398,6 +1415,11 @@ const LeaveDatePage: React.FC = () => {
 
     // 更新加班人員
     const handleOvertimeMemberChange = async (record: LeaveRecordType, memberName: string, halfType?: 'first' | 'second') => {
+        if (isPastDate()) {
+            alert('無法為過去日期設定加班');
+            return;
+        }
+
         const recordId = record._id || '';
         const currentState = overtimeStates[recordId] || { selectedType: '', selectedMember: '' };
 
@@ -1543,6 +1565,11 @@ const LeaveDatePage: React.FC = () => {
 
     // 取消加班
     const handleCancelOvertime = async (record: LeaveRecordType) => {
+        if (isPastDate()) {
+            alert('無法取消過去日期的加班');
+            return;
+        }
+
         if (!confirm(`確定要取消加班嗎？`)) {
             return;
         }
@@ -2364,13 +2391,39 @@ const LeaveDatePage: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* 過去日期警告 */}
+            {isPastDate() && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-center">
+                        <div className="text-red-600 mr-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-medium text-red-800">
+                                無法操作過去日期
+                            </p>
+                            <p className="text-xs text-red-600">
+                                今天以前的日期不可請假或加班
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-8">
                 {!showLeaveForm ? (
                     <button
-                        className="w-full px-3 py-2 text-sm font-medium text-white rounded-md bg-blue-500 hover:bg-blue-600"
-                        onClick={() => setShowLeaveForm(true)}
+                        className={`w-full px-3 py-2 text-sm font-medium text-white rounded-md ${
+                            isPastDate()
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-blue-500 hover:bg-blue-600'
+                        }`}
+                        onClick={() => !isPastDate() && setShowLeaveForm(true)}
+                        disabled={isPastDate()}
                     >
-                        我要請假
+                        {isPastDate() ? '過去日期無法請假' : '我要請假'}
                     </button>
                 ) : (
                     <form onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
@@ -2504,10 +2557,10 @@ const LeaveDatePage: React.FC = () => {
                         )}
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || isPastDate()}
                             className="w-full px-3 py-2 text-sm font-medium text-white rounded-md bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
-                            送出請假申請
+                            {isPastDate() ? '過去日期無法請假' : '送出請假申請'}
                         </button>
                     </form>
                 )}

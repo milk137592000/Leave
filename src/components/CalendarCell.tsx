@@ -46,7 +46,17 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
     // 檢查是否為週六
     const isSaturday = date.getDay() === 6;
 
+    // 檢查是否為過去日期（今天以前，今天不算過去）
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cellDate = new Date(date);
+    cellDate.setHours(0, 0, 0, 0);
+    const isPastDate = cellDate < today;
+
     const handleClick = () => {
+        if (isPastDate) {
+            return; // 過去日期不可點擊
+        }
         if (onToggleLeave) {
             onToggleLeave(date);
         }
@@ -667,12 +677,20 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
 
     return (
         <div
-            className={`relative p-2 h-32 border border-gray-200 ${isToday ? 'border-blue-500' : ''
-                } cursor-pointer hover:bg-gray-50`}
+            className={`relative p-2 h-32 border border-gray-200 ${isToday ? 'border-blue-500' : ''}
+                ${isPastDate
+                    ? 'cursor-not-allowed opacity-50 bg-gray-50'
+                    : 'cursor-pointer hover:bg-gray-50'
+                }`}
             onClick={handleClick}
         >
             <div className="text-sm font-medium flex justify-between items-center">
-                <span>{format(date, 'd', { locale: zhTW })}</span>
+                <span className={isPastDate ? 'text-gray-400' : ''}>
+                    {format(date, 'd', { locale: zhTW })}
+                    {isPastDate && (
+                        <span className="ml-1 text-xs text-gray-400">×</span>
+                    )}
+                </span>
                 {isSaturday && deficits.length > 0 && (
                     <div className="text-[9px] bg-amber-800 text-white rounded-full px-2 py-0.5 whitespace-nowrap">
                         {deficits.map(d => d && d.replace('差額', '差')).join('、')}
@@ -727,7 +745,9 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                         const role = getMemberRole(record.name);
                         let tagClass = '';
 
-                        if (isConfirmed) {
+                        if (isPastDate) {
+                            tagClass = 'bg-gray-100 text-gray-400';
+                        } else if (isConfirmed) {
                             tagClass = 'bg-gray-200 text-gray-500';
                         } else if (role === '班長') {
                             tagClass = 'bg-red-100 text-red-700';
@@ -746,7 +766,7 @@ const CalendarCell: React.FC<CalendarCellProps> = ({
                                 className={`flex items-center gap-1 ${tagClass} ${fontSizeClass} px-1 py-0.5 rounded whitespace-nowrap cursor-pointer hover:opacity-80`} // Restored classes
                                 onClick={(e) => { // Restored onClick
                                     e.stopPropagation();
-                                    if (onToggleLeave) {
+                                    if (!isPastDate && onToggleLeave) {
                                         onToggleLeave(date);
                                     }
                                 }}

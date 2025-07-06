@@ -90,6 +90,19 @@ export async function POST(request: Request) {
             );
         }
 
+        // 驗證日期不能是今天以前（今天可以操作）
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const requestDate = new Date(date);
+        requestDate.setHours(0, 0, 0, 0);
+
+        if (requestDate < today) {
+            return NextResponse.json(
+                { error: '無法為今天以前的日期請假' },
+                { status: 400 }
+            );
+        }
+
         let proxyRequestInfo = null;
 
         // 身份驗證邏輯
@@ -461,6 +474,19 @@ export async function DELETE(request: Request) {
             );
         }
 
+        // 驗證日期不能是今天以前（今天可以操作）
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const requestDate = new Date(date);
+        requestDate.setHours(0, 0, 0, 0);
+
+        if (requestDate < today) {
+            return NextResponse.json(
+                { error: '無法取消今天以前的請假' },
+                { status: 400 }
+            );
+        }
+
         await connectDB();
 
         // 查找請假記錄（在刪除前獲取資訊用於通知）
@@ -524,6 +550,19 @@ export async function PUT(request: Request) {
         if (!date || !name) {
             return NextResponse.json(
                 { error: '日期和姓名為必填字段' },
+                { status: 400 }
+            );
+        }
+
+        // 驗證日期不能是今天以前（今天可以操作）
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const requestDate = new Date(date);
+        requestDate.setHours(0, 0, 0, 0);
+
+        if (requestDate < today) {
+            return NextResponse.json(
+                { error: '無法為今天以前的日期進行加班操作' },
                 { status: 400 }
             );
         }

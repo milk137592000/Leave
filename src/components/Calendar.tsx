@@ -97,13 +97,23 @@ export default function Calendar({
                         const bgColor = leaveRecord ? getLeaveRecordColor(leaveRecord) : '';
                         const defaultShifts = { A: '早班', B: '早班', C: '早班', D: '早班' };
                         
+                        // 檢查是否為過去日期（今天以前，今天不算過去）
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const dayDate = new Date(day);
+                        dayDate.setHours(0, 0, 0, 0);
+                        const isPastDate = dayDate < today;
+
                         return (
                             <div
                                 key={index}
-                                className={`aspect-[1/1.1] p-1 sm:p-2 border rounded-xl sm:rounded-lg cursor-pointer bg-white
+                                className={`aspect-[1/1.1] p-1 sm:p-2 border rounded-xl sm:rounded-lg transition-colors
                                     ${isSameDay(day, new Date()) ? 'border-red-500 border-2' : 'border-gray-200'}
-                                    hover:bg-gray-100 transition-colors`}
-                                onClick={() => onToggleLeave(day)}
+                                    ${isPastDate
+                                        ? 'bg-gray-100 cursor-not-allowed opacity-60'
+                                        : 'cursor-pointer bg-white hover:bg-gray-100'
+                                    }`}
+                                onClick={() => !isPastDate && onToggleLeave(day)}
                             >
                                 <CalendarCell
                                     date={day}
