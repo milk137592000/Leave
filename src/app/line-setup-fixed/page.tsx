@@ -198,13 +198,12 @@ export default function LineSetupFixedPage() {
                     </p>
                     <button
                         onClick={() => {
-                            if ((window as any).liff?.closeWindow) {
-                                (window as any).liff.closeWindow();
-                            }
+                            // 跳轉到主頁面而不是關閉視窗
+                            window.location.href = 'https://leave-ten.vercel.app/';
                         }}
                         className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
                     >
-                        關閉視窗
+                        前往主頁面
                     </button>
                 </div>
             </div>
