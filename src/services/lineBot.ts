@@ -1289,7 +1289,7 @@ export async function sendLineOvertimeOpportunityNotificationDirect(
                             requesterName: opportunity.requesterName,
                             requesterTeam: opportunity.requesterTeam,
                             period: opportunity.period,
-                            suggestedTeam: user.name,
+                            suggestedTeam: user.team,
                             reason: eligibility.reason || '有加班機會'
                         }
                     );

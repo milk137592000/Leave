@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
                     requesterTeam: leaveRecord.requesterTeam,
                     date: leaveRecord.date,
                     period: '全天',
-                    suggestedTeam: user.memberName,
+                    suggestedTeam: user.team,
                     reason: user.reason || '需要加班支援'
                 });
                 

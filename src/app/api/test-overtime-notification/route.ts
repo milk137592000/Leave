@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
                                 requesterTeam,
                                 date: testDate,
                                 period: '全天',
-                                suggestedTeam: user.memberName,
+                                suggestedTeam: user.team,
                                 reason: eligibility.reason || '需要加班支援'
                             });
                             
